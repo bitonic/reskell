@@ -1,0 +1,38 @@
+name:               hsnews
+version:            0.1
+homepage:           https://github.com/rostayob/HsNews
+synopsis:           Hacker news clone in haskell
+category:           Web
+license:            GPL-2
+author:             Francesco Mazzoli
+maintainer:         Francesco Mazzoli <f@mazzo.li>
+cabal-version:      >= 1.6
+build-type:         Simple
+
+source-repository head
+  type:      git
+  location:  git://github.com/rostayob/HsNews.git
+  branch:    master
+
+executable hsnews
+  hs-source-dirs:    src
+  main-is:           HsNews.hs
+  other-modules:
+    Templates, HsNews, Forms, State, State.Users
+
+  build-depends:     base >= 4,
+                     happstack >= 0.6,
+                     happstack-state >= 0.6,
+                     happstack-server >= 0.6,
+                     happstack-util >= 0.6,
+                     happstack-data >= 0.6,
+                     blaze-html >= 0.4,
+                     digestive-functors >= 0.0.2.1,
+                     digestive-functors-blaze >= 0.0.2,
+                     digestive-functors-happstack >= 0.0.2,
+                     text,
+                     bytestring,
+                     mtl,
+                     pwstore-fast,
+                     hashmap,
+                     hashable
