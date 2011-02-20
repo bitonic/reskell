@@ -3,6 +3,7 @@ module Main (
   ) where
 
 import State
+import qualified State.Users as U
 import Templates
 import Forms
 
@@ -38,27 +39,27 @@ logout = do
   
 login :: ServerPart Response
 login = do
-  users <- query GetUsers
+  users <- query U.GetUsers
   decodeBody myPolicy
   r <- eitherHappstackForm (loginForm users <++ childErrors) "login-form"
   case r of
     Left form' -> ndResponse $ loginTemplate $
                   formTemplate form' "/users/login" "Login"
     Right (UserData u _) -> do
-      sid <- liftIO genSaltIO >>= (update . InsertSession u)
+      sid <- liftIO genSaltIO >>= (update . U.InsertSession u)
       addCookie Session $ mkCookie sessionCookieName sid
       seeOther "/" $ toResponse "The login was successful, redirecting."
 
 register :: ServerPart Response
 register = do
-  users <- query GetUsers
+  users <- query U.GetUsers
   decodeBody myPolicy
   r <- eitherHappstackForm (registerForm users <++ childErrors) "register-form"
   case r of
     Left form' -> ndResponse $ registerTemplate $
                   formTemplate form' "/users/register" "Register"
     Right (UserData username passwd) -> do
-      liftIO genSaltIO >>= (update . InsertUser username passwd)
+      liftIO genSaltIO >>= (update . U.InsertUser username passwd)
       ndResponse registerSuccessTemplate
 
 
@@ -68,7 +69,7 @@ usersHandlers =
        , dir "login" login
        , dir "logout" logout
        , do nullDir
-            us <- query GetUsers
+            us <- query U.GetUsers
             ok $ toResponse $ show us
        ]
 

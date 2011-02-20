@@ -3,6 +3,7 @@
   StandaloneDeriving, OverloadedStrings #-}
 
 module State.Users (
+  UserRank(..), Username, Password, User(..),
   Users, UsersMap, SessionId,
   GetUsers(..), InsertUser(..), InsertSession(..)
   ) where
@@ -32,7 +33,7 @@ import Data.ByteString.Lazy (toChunks)
 import qualified Text.Read as Read
 import qualified Text.ParserCombinators.ReadP as ReadP
 
-import Crypto.PasswordStore (Salt, makePasswordSalt)
+import Crypto.PasswordStore (Salt, makePasswordSalt, exportSalt)
 
 -- Version and serialize instances for HashMap and HashSet, I have to
 -- put this somewhere else.
@@ -53,11 +54,25 @@ $(deriveSerialize ''Salt)
 ---------------------------------------------------------------------
 
 
+data UserRank = Admin | Member
+              deriving (Eq, Ord, Read, Show, Data, Typeable)
+instance Version UserRank
+$(deriveSerialize ''UserRank)
+
 type Username = ByteString
 type Password = ByteString
 
+data User = User { username :: Username
+                 , password :: Password
+                 , rank :: UserRank
+                 }
+            deriving (Eq, Ord, Read, Show, Data, Typeable)
+
 -- | A map with all the users
-type UsersMap = HashMap Username Password
+type UsersMap = HashMap Username User
+
+instance Version User
+$(deriveSerialize ''User)
 
 -- | The SessionId looks like this: username|randomSalt. The salt is
 -- provided externally.
@@ -78,7 +93,7 @@ data Users = Users { users :: UsersMap
                    }
              deriving (Eq, Ord, Read, Show, Data, Typeable)
 
-instance Version Users where mode = Primitive
+instance Version Users
 $(deriveSerialize ''Users)
 
 instance Component Users where
@@ -98,8 +113,10 @@ hashStrength = 12
 -- | Gets username and password and updates the users map
 insertUser :: ByteString -> ByteString -> Salt -> Update Users ()
 insertUser username passwd salt =
-  modify (\s -> s { users = M.insert username hashedp (users s) })
-  where hashedp = makePasswordSalt passwd salt hashStrength
+  modify (\s -> s { users = M.insert username user' (users s) })
+  where
+    hashedp = makePasswordSalt passwd salt hashStrength
+    user'   = User username hashedp Member
 
 -- | Inserts a new session. Accepts a salt since I'll generate the
 -- random bit with genSaltIO.
@@ -108,7 +125,7 @@ insertSession username salt = do
   modify (\s -> s { session = S.insert sid (session s) })
   return $ B.unpack sid
   where
-    sid = B.concat [username, "|", B.pack . show $ salt]
+    sid = B.concat [username, "|", exportSalt salt]
 
 deleteSession :: SessionId -> Update Users ()
 deleteSession sid = modify (\s -> s { session = S.delete sid (session s) })

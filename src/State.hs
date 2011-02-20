@@ -3,11 +3,7 @@
   TypeOperators #-}
 
 module State (
-  AppState,
-  
-  -- Users
-  Users, UsersMap, SessionId,
-  GetUsers(..), InsertUser(..), InsertSession(..)
+  AppState
   ) where
 
 import State.Users

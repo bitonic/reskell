@@ -22,12 +22,12 @@ import Text.Digestive.Validate
 
 import Text.Blaze.Html5 (Html)
 
-import State.Users
+import qualified State.Users as U
 
 data UserData = UserData ByteString ByteString
 
 registerForm :: (Monad m, Functor m)
-                => UsersMap -> HappstackForm m Html BlazeFormHtml UserData
+                => U.UsersMap -> HappstackForm m Html BlazeFormHtml UserData
 registerForm users = (`validateMany` [vUsername, vPassword]) $
                      UserData
                      <$> label "Username: " ++> (B.pack <$> inputText Nothing)
@@ -43,11 +43,10 @@ registerForm users = (`validateMany` [vUsername, vPassword]) $
         B.length p > 4
 
 loginForm :: (Monad m, Functor m)
-             => UsersMap -> HappstackForm m Html BlazeFormHtml UserData
+             => U.UsersMap -> HappstackForm m Html BlazeFormHtml UserData
 loginForm users = (`validate` vUser) $ UserData
                   <$> label "Username: " ++> (B.pack <$> inputText Nothing)
                   <*> label "Password: " ++> (B.pack <$> inputPassword)
   where
     vUser = check "Incorrect username/password" $ \(UserData u p) ->
-      fromMaybe False $ M.lookup u users >>= return . (verifyPassword p)
-
+      fromMaybe False $ M.lookup u users >>= return . (verifyPassword p) . U.password
