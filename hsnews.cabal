@@ -33,7 +33,8 @@ executable hsnews
                      text,
                      bytestring,
                      mtl,
-                     pwstore-fast,
+                     pwstore-fast >= 2,
+                     containers,
                      hashmap,
                      hashable
 

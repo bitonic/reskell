@@ -6,8 +6,8 @@ module State (
   AppState,
   
   -- Users
-  Users, UsersMap,
-  GetUsers(..), InsertUser(..)
+  Users, UsersMap, SessionId,
+  GetUsers(..), InsertUser(..), InsertSession(..)
   ) where
 
 import State.Users

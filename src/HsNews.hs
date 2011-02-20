@@ -7,6 +7,7 @@ import Templates
 import Forms
 
 import Control.Monad (msum)
+import Control.Monad.Trans (liftIO)
 import Control.Exception (bracket)
 
 import Happstack.Server
@@ -17,15 +18,24 @@ import Text.Digestive.Types  ((<++))
 import Text.Digestive.Blaze.Html5 (childErrors)
 import Text.Digestive.Forms.Happstack (eitherHappstackForm)
 
+import Crypto.PasswordStore (genSaltIO)
 
 resourcesDir :: FilePath
 resourcesDir = "/home/astroboy/src/hsnews/resources"
+
+sessionCookieName :: String
+sessionCookieName = "hsnews-session"
 
 myPolicy :: BodyPolicy
 myPolicy = (defaultBodyPolicy "/tmp/" 0 1000 1000)
 
 ndResponse a = nullDir >> (ok $ toResponse a)
 
+logout :: ServerPart Response
+logout = do
+  expireCookie sessionCookieName
+  seeOther "/" $ toResponse "The logout was successful, redirecting."
+  
 login :: ServerPart Response
 login = do
   users <- query GetUsers
@@ -34,7 +44,10 @@ login = do
   case r of
     Left form' -> ndResponse $ loginTemplate $
                   formTemplate form' "/users/login" "Login"
-    Right _ -> seeOther "/" $ toResponse "The login was successful, redirecting."
+    Right (UserData u _) -> do
+      sid <- liftIO genSaltIO >>= (update . InsertSession u)
+      addCookie Session $ mkCookie sessionCookieName sid
+      seeOther "/" $ toResponse "The login was successful, redirecting."
 
 register :: ServerPart Response
 register = do
@@ -45,7 +58,7 @@ register = do
     Left form' -> ndResponse $ registerTemplate $
                   formTemplate form' "/users/register" "Register"
     Right (UserData username passwd) -> do
-      update $ InsertUser username passwd
+      liftIO genSaltIO >>= (update . InsertUser username passwd)
       ndResponse registerSuccessTemplate
 
 
@@ -53,6 +66,7 @@ usersHandlers :: ServerPart Response
 usersHandlers =
   msum [ dir "register" register
        , dir "login" login
+       , dir "logout" logout
        , do nullDir
             us <- query GetUsers
             ok $ toResponse $ show us
