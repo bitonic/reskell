@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Forms (
-  UserData(..), registerForm, loginForm
+  UserData(..), registerForm, loginForm,
   ) where
 
 import Control.Applicative ((<$>), (<*>))
@@ -27,7 +27,7 @@ import State.Users
 data UserData = UserData ByteString ByteString
 
 registerForm :: (Monad m, Functor m)
-                => Users -> HappstackForm m Html BlazeFormHtml UserData
+                => UsersMap -> HappstackForm m Html BlazeFormHtml UserData
 registerForm users = (`validateMany` [vUsername, vPassword]) $
                      UserData
                      <$> label "Username: " ++> (B.pack <$> inputText Nothing)
@@ -43,7 +43,7 @@ registerForm users = (`validateMany` [vUsername, vPassword]) $
         B.length p > 4
 
 loginForm :: (Monad m, Functor m)
-             => Users -> HappstackForm m Html BlazeFormHtml UserData
+             => UsersMap -> HappstackForm m Html BlazeFormHtml UserData
 loginForm users = (`validate` vUser) $ UserData
                   <$> label "Username: " ++> (B.pack <$> inputText Nothing)
                   <*> label "Password: " ++> (B.pack <$> inputPassword)
