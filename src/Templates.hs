@@ -8,7 +8,7 @@ module Templates (
   ) where
 
 import Data.Text (Text)
-import Data.Text as T
+import qualified Data.Text as T
 
 import Text.Blaze (text, stringValue)
 import Text.Blaze.Internal (HtmlM)
@@ -17,10 +17,6 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Text.Digestive.Forms.Html (FormHtml, renderFormHtml)
-
-import Happstack.State (Query)
-
-import State
 
 baseTemplate :: Text -> H.Html -> H.Html
 baseTemplate title body = do

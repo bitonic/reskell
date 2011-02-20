@@ -36,3 +36,5 @@ executable hsnews
                      pwstore-fast,
                      hashmap,
                      hashable
+
+  ghc-options:       -Wall

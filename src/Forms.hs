@@ -5,7 +5,6 @@ module Forms (
   ) where
 
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad (liftM)
 import Data.Monoid (mconcat)
 import Data.Maybe (fromMaybe)
 

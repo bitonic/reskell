@@ -1,5 +1,5 @@
 module State.Users (
-  Users(..)
+  Users
   ) where
 
 import Happstack.Data.Serialize (Serialize(..), Version(..), Mode(..), safeGet,

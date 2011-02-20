@@ -9,24 +9,16 @@ import Forms
 import Control.Monad (msum)
 import Control.Exception (bracket)
 
-import Data.Monoid (mempty)
-
-import Data.Text (Text)
-
 import Happstack.Server
-import Happstack.Server.FileServe
 import Happstack.State (query, update, startSystemState, shutdownSystem, Proxy(..),
                         createCheckpoint)
 
-import Text.Blaze.Html5 ((!))
-import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
-
 import Text.Digestive.Types  ((<++))
-import Text.Digestive.Blaze.Html5 (childErrors, renderFormHtml)
+import Text.Digestive.Blaze.Html5 (childErrors)
 import Text.Digestive.Forms.Happstack (eitherHappstackForm)
 
 
+resourcesDir :: FilePath
 resourcesDir = "/home/astroboy/src/hsnews/resources"
 
 myPolicy :: BodyPolicy
@@ -42,8 +34,7 @@ login = do
   case r of
     Left form' -> ndResponse $ loginTemplate $
                   formTemplate form' "/users/login" "Login"
-    Right (UserData username passwd) ->
-      seeOther "/" $ toResponse "The login was successful, redirecting."
+    Right _ -> seeOther "/" $ toResponse "The login was successful, redirecting."
 
 register :: ServerPart Response
 register = do

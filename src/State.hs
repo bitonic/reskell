@@ -2,14 +2,12 @@
   MultiParamTypeClasses, TemplateHaskell, TypeFamilies, TypeSynonymInstances #-}
 
 module State (
-  AppState(..),
+  AppState,
   Users, GetUsers(..), InsertUser(..)
   ) where
 
-import Control.Applicative ((<$>))
-import Control.Monad (liftM)
-import Control.Monad.Reader (ask, asks)
-import Control.Monad.State (get, put, modify)
+import Control.Monad.Reader (asks)
+import Control.Monad.State (modify)
 
 import Data.Data (Data, Typeable)
 import Data.ByteString (ByteString)
@@ -47,6 +45,7 @@ instance Component AppState where
 getUsers :: Query AppState Users
 getUsers = asks users
 
+hashStrength :: Int
 hashStrength = 12
 
 -- | Gets username and password and updates the users map
