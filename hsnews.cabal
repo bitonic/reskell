@@ -29,13 +29,13 @@ executable hsnews
                      blaze-html >= 0.4,
                      digestive-functors >= 0.0.2.1,
                      digestive-functors-blaze >= 0.0.2,
-                     digestive-functors-happstack >= 0.0.2,
+                     digestive-functors-happstack >= 0.0.2.1,
                      text,
                      bytestring,
                      mtl,
-                     pwstore-fast >= 2,
+                     pwstore-fast >= 2.1,
                      containers,
                      hashmap,
                      hashable
 
-  ghc-options:       -Wall
+  ghc-options:       -Wall -fno-warn-unused-do-bind
