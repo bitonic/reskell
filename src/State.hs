@@ -18,7 +18,7 @@ import Data.Data (Data, Typeable)
 
 import Happstack.State (Component(..), End,Version, deriveSerialize, mkMethods, (:+:))
 
--- | State
+-- | A dummy component that depends on all the others
 data AppState = AppState
               deriving (Eq, Ord, Read, Show, Data, Typeable)
 

@@ -1,8 +1,4 @@
-module Config (
-  resourcesDir,
-  sessionCookieName,
-  appPolicy
-  ) where
+module Config where
 
 import Happstack.Server (BodyPolicy, defaultBodyPolicy)
 

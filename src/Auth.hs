@@ -29,6 +29,7 @@ import Templates
 
 logout :: ServerPart Response
 logout = do
+  decodeBody appPolicy
   sid <- getDataFn $ lookCookieValue sessionCookieName
   case sid of
     (Left _)    -> ok $ toResponse "You are already logged in."
@@ -49,6 +50,9 @@ register = do
       liftIO genSaltIO >>= (update . InsertUser username passwd)
       ndResponse registerSuccessTemplate
 
+-- | The login page. It uses the form from Forms, and tries to get a
+-- "redirect" parameter which tells where to go after the login. If it
+-- can't find it, it redirects to the root.
 login :: ServerPart Response
 login = do
   users <- query GetUsers
@@ -64,6 +68,11 @@ login = do
       redirect <- getDataOr (look "redirect") (\_ -> return "/")
       seeOtherN redirect
 
+-- | Accepts a minimum rank and a ServerPart Response. If the user is
+-- not logged in, displays the login page passing the requested Path,
+-- so that the user will be redirected there after the login.  If the
+-- user is logged in and his rank is less than the one required, it
+-- displays a 403 error.
 requireRank :: UserRank -> ServerPart Response -> ServerPart Response
 requireRank rank response = decodeBody appPolicy >> checkSession
   where

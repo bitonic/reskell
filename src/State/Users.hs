@@ -59,6 +59,8 @@ $(deriveSerialize ''UserRank)
 type Username = ByteString
 type Password = ByteString
 
+-- | The User data type, stores all the information about a single
+-- user
 data User = User { userName :: Username
                  , userPassword :: Password
                  , userRank :: UserRank
@@ -75,10 +77,11 @@ $(deriveSerialize ''User)
 -- provided externally.
 type SessionId = ByteString
 
--- | A session with all the logged 
+-- | A set with all the session ids
 type UsersSessions = HashSet SessionId
 
--- | The Users data type
+-- | The Users data type, stores all the User(s) and the set of
+-- sessions for the logged in users
 data Users = Users { usersMap :: UsersMap
                    , usersSessions :: UsersSessions
                    }
@@ -113,7 +116,7 @@ insertUser un passwd salt =
 getSessions :: Query Users UsersSessions
 getSessions = asks usersSessions
 
--- | Inserts a new session. Accepts a salt since I'll generate the
+-- | Inserts a new session. Accepts a Salt since I'll generate the
 -- random bit with genSaltIO.
 insertSession :: Username -> Salt -> Update Users String
 insertSession un salt = do
@@ -122,12 +125,14 @@ insertSession un salt = do
   where
     sid = B.concat [un, "|", exportSalt salt]
 
+-- | Deletes a session from the session set.
 deleteSession :: SessionId -> Update Users ()
 deleteSession sid =
   modify (\s -> s { usersSessions = S.delete sid (usersSessions s) })
 
 -- | Returns the User if the session is present, Nothing if the
--- session is not. It also returns Nothing if the session id is malformed.
+-- session is not. It also returns Nothing if the session id is
+-- malformed.
 checkSession :: SessionId -> Query Users (Maybe User)
 checkSession sid
   | B.length salt < 2 = return Nothing
@@ -142,7 +147,7 @@ checkSession sid
       else return Nothing
   where (username, salt) = B.break (== '|') sid
 
--- Generate the query events
+-- Generate the update/query
 $(mkMethods ''Users [ 'getUsers, 'insertUser
                     , 'getSessions, 'insertSession, 'deleteSession, 'checkSession
                     ])
