@@ -4,22 +4,18 @@ module Main (
 
 import Config
 import State
-import Templates
-import Forms
-import Utils
 import Auth
 
 import Control.Monad (msum)
 import Control.Exception (bracket)
 
 import Happstack.Server
-import Happstack.State (query, update, startSystemState, shutdownSystem, Proxy(..),
-                        createCheckpoint)
+import Happstack.State
 
 usersHandlers :: ServerPart Response
 usersHandlers =
   msum [ dir "register" register
-       , dir "login" $ login
+       , dir "login" login
        , dir "logout" logout
        , dir "test" $ dir "member" $
          requireRank Member $ ok $ toResponse "You are a member!"

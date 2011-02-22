@@ -8,7 +8,6 @@ import Control.Applicative ((<$>), (<*>))
 import Data.Monoid (mconcat)
 import Data.Maybe (fromMaybe)
 
-import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B
 
 import qualified Data.HashMap as M
@@ -49,4 +48,4 @@ loginForm users = (`validate` vUser) $ UserData
                   <*> label "Password: " ++> (B.pack <$> inputPassword)
   where
     vUser = check "Incorrect username/password" $ \(UserData u p) ->
-      fromMaybe False $ M.lookup u users >>= return . (verifyPassword p) . userPassword
+      fromMaybe False $ fmap ((verifyPassword p) . userPassword) (M.lookup u users)

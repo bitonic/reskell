@@ -6,17 +6,14 @@ module State (
   AppState,
   
   -- Users
-  UserRank(..), Username, Password, User(..),
-  Users, UsersMap, SessionId,
-  GetUsers(..), InsertUser(..),
-  InsertSession(..), DeleteSession(..), GetSessions(..), CheckSession(..)
+  module State.Users
   ) where
 
 import State.Users
 
 import Data.Data (Data, Typeable)
 
-import Happstack.State (Component(..), End,Version, deriveSerialize, mkMethods, (:+:))
+import Happstack.State
 
 -- | A dummy component that depends on all the others
 data AppState = AppState

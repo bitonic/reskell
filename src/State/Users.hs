@@ -14,10 +14,8 @@ import Control.Monad.State (modify)
 
 import Data.Data (Data, Typeable)
 
-import Happstack.Data.Serialize (Serialize(..), Version(..), Mode(..), safeGet,
-                                 safePut, contain)
-import Happstack.State (Component(..), End, Query, Update, deriveSerialize,
-                        mkMethods)
+import Happstack.Data.Serialize
+import Happstack.State
   
 import Data.HashMap (HashMap)
 import qualified Data.HashMap as M

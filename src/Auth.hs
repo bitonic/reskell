@@ -4,16 +4,12 @@ module Auth (
 
 import Control.Monad (liftM)
 import Control.Monad.Trans (liftIO)
-import Control.Monad.Error (catchError)
 
 import Happstack.Server
-import Happstack.Server.SURI (ToSURI, render)
+import Happstack.Server.SURI (render)
 import Happstack.State (query, update)
 
 import qualified Data.ByteString.Char8 as B
-
-import qualified Data.HashMap as M
-import qualified Data.HashSet as S
 
 import Text.Digestive.Types  ((<++))
 import Text.Digestive.Blaze.Html5 (childErrors)
@@ -30,8 +26,8 @@ import Templates
 logout :: ServerPart Response
 logout = do
   decodeBody appPolicy
-  sid <- getDataFn $ lookCookieValue sessionCookieName
-  case sid of
+  rq <- getDataFn $ lookCookieValue sessionCookieName
+  case rq of
     (Left _)    -> ok $ toResponse "You are already logged in."
     (Right sid) -> do
       update $ DeleteSession $ B.pack sid
@@ -51,7 +47,7 @@ register = do
       ndResponse registerSuccessTemplate
 
 -- | The login page. It uses the form from Forms, and tries to get a
--- "redirect" parameter which tells where to go after the login. If it
+-- "redir" parameter which tells where to go after the login. If it
 -- can't find it, it redirects to the root.
 login :: ServerPart Response
 login = do
@@ -60,13 +56,13 @@ login = do
   r <- eitherHappstackForm (loginForm users <++ childErrors) "login-form"
   case r of
     Left form' -> do
-      query <- liftM rqQuery askRq
-      ndResponse $ loginTemplate $ formTemplate form' ("/users/login" ++ query) "Login"
+      q <- liftM rqQuery askRq
+      ndResponse $ loginTemplate $ formTemplate form' ("/users/login" ++ q) "Login"
     Right (UserData u _) -> do
       sid <- liftIO genSaltIO >>= (update . InsertSession u)
       addCookie Session $ mkCookie sessionCookieName sid
-      redirect <- getDataOr (look "redirect") (\_ -> return "/")
-      seeOtherN redirect
+      redir <- getDataOr (look "redir") (\_ -> return "/")
+      seeOtherN redir
 
 -- | Accepts a minimum rank and a ServerPart Response. If the user is
 -- not logged in, displays the login page passing the requested Path,
@@ -83,10 +79,10 @@ requireRank rank response = decodeBody appPolicy >> checkSession
       case userM of
         Just user -> checkRank user
         Nothing   -> displayLogin
-    checkRank user = do
+    checkRank user =
       if userRank user < rank
         then forbidden $ toResponse "Access denied."
         else response
     displayLogin = do
-      redirect <- liftM (render . rqUri) askRq
-      seeOtherN ("/users/login?redirect=" ++ redirect)
+      redir <- liftM (render . rqUri) askRq
+      seeOtherN ("/users/login?redir=" ++ redir)
