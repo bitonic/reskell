@@ -28,14 +28,14 @@ import Utils
 import Templates
 
 logout :: ServerPart Response
-logout = deleteSession `catchError` (\_ -> redir)
-  where
-    redir = seeOtherN "/"
-    deleteSession = do
-      sid <- liftM B.pack $ lookCookieValue sessionCookieName
-      update $ DeleteSession sid
+logout = do
+  sid <- getDataFn $ lookCookieValue sessionCookieName
+  case sid of
+    (Left _)    -> ok $ toResponse "You are already logged in."
+    (Right sid) -> do
+      update $ DeleteSession $ B.pack sid
       expireCookie sessionCookieName
-      redir
+      ok $ toResponse "You are now logged out."
 
 register :: ServerPart Response
 register = do

@@ -40,7 +40,7 @@ loginTemplate :: H.Html -> H.Html
 loginTemplate form = baseTemplate "Login" $ do
   H.h2 $ text "Login"
   form
-                          
+
 formTemplate :: FormHtml (HtmlM a) -> String -> String -> H.Html
 formTemplate form action submit = do
   let (formHtml, enctype) = renderFormHtml form
