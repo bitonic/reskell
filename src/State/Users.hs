@@ -28,7 +28,7 @@ import Data.Hashable (Hashable)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B
 
-import Crypto.PasswordStore (Salt, makePasswordSalt, exportSalt)
+import Crypto.PasswordStore
 
 -- Version and serialize instances for HashMap and HashSet, I have to
 -- put this somewhere else.
@@ -90,7 +90,13 @@ $(deriveSerialize ''Users)
 
 instance Component Users where
   type Dependencies Users = End
-  initialValue = Users M.empty S.empty
+  initialValue = Users (M.fromList [("admin", firstUser)]) S.empty
+    where
+      firstUser = User { userName     = "admin"
+                       , userPassword = pw
+                       , userRank     = Admin
+                       }
+      pw = makePasswordSalt "admin" (makeSalt "**********") hashStrength
 
 -- Query / Updates
 

@@ -48,4 +48,4 @@ loginForm users = (`validate` vUser) $ UserData
                   <*> label "Password: " ++> (B.pack <$> inputPassword)
   where
     vUser = check "Incorrect username/password" $ \(UserData u p) ->
-      fromMaybe False $ fmap ((verifyPassword p) . userPassword) (M.lookup u users)
+      fromMaybe False $ fmap ((verifyPassword p) . userPassword) $ M.lookup u users

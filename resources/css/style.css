@@ -1,0 +1,88 @@
+html, body, div, span, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+abbr, address, cite, code,
+del, dfn, em, img, ins, kbd, q, samp,
+small, strong, sub, sup, var,
+b, i,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, figcaption, figure, 
+footer, header, hgroup, menu, nav, section, summary,
+time, mark, audio, video {
+    margin:0;
+    padding:0;
+    border:0;
+    outline:0;
+    font-size:1em;
+    vertical-align:baseline;
+    background:transparent;
+    font-variant:normal;
+}
+
+body {
+    font-family: Verdana, sans;
+    margin: 0 auto 0 auto;
+    width: 75%;
+    font-size: 13px;
+}
+
+/* Custom font - same as haskell.org */
+@font-face {
+    font-family: "Adelle Basic";
+    font-weight: bold;
+    src: url("/fonts/AdelleBasic_Bold.otf");
+}
+
+/* Header */
+
+#header {
+    background-color: #4E6272;
+    padding: 0.3em;
+    color:#fff;
+    vertical-align: middle;
+}
+
+#header a {
+    color: #fff;
+    text-decoration: none;
+}
+
+h1 {
+    display: inline;
+    font-size: 1.2em;
+    font-weight: bold;
+    font-family: "Adelle Basic", Verdana, sans;
+    height: 26px;
+    margin: 0 0.2em 0 0;
+}
+
+#logo {
+    vertical-align:text-bottom;
+    border: 1px solid #fff;
+    margin: 0 0.2em 0 0;
+}
+
+#userMenu {
+    float:right;
+    vertical-align:middle;
+}
+
+#userMenu img {
+    height:26px;
+    width:1px;
+    vertical-align:text-bottom;
+}
+
+/* Content */
+
+#container {
+    background-color: #f6f6ef;
+    padding: 0.3em;
+}
+
+h2 {
+    color: #828282;
+    font-weight: bold;
+    margin: 0.1em 0;
+}
