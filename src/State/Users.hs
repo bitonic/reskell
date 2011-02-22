@@ -1,11 +1,12 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleContexts, GeneralizedNewtypeDeriving, 
+{-# Language DeriveDataTypeable, FlexibleContexts, GeneralizedNewtypeDeriving, 
   MultiParamTypeClasses, TemplateHaskell, TypeFamilies, TypeSynonymInstances, 
-  StandaloneDeriving, OverloadedStrings #-}
+  StandaloneDeriving, OverloadedStrings, FlexibleInstances #-}
 
 module State.Users (
   UserRank(..), Username, Password, User(..),
   Users, UsersMap, SessionId,
-  GetUsers(..), InsertUser(..), InsertSession(..)
+  GetUsers(..), InsertUser(..),
+  InsertSession(..), DeleteSession(..), GetSessions(..), CheckSession(..)
   ) where
 
 import Control.Monad.Reader (asks)
@@ -14,8 +15,8 @@ import Control.Monad.State (modify)
 import Data.Data (Data, Typeable)
 
 import Happstack.Data.Serialize (Serialize(..), Version(..), Mode(..), safeGet,
-                                 safePut, contain, serialize)
-import Happstack.State (Component(..), End, Query, Update, Version, deriveSerialize,
+                                 safePut, contain)
+import Happstack.State (Component(..), End, Query, Update, deriveSerialize,
                         mkMethods)
   
 import Data.HashMap (HashMap)
@@ -28,10 +29,6 @@ import Data.Hashable (Hashable)
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B
-import Data.ByteString.Lazy (toChunks)
-
-import qualified Text.Read as Read
-import qualified Text.ParserCombinators.ReadP as ReadP
 
 import Crypto.PasswordStore (Salt, makePasswordSalt, exportSalt)
 
@@ -54,17 +51,17 @@ $(deriveSerialize ''Salt)
 ---------------------------------------------------------------------
 
 
-data UserRank = Admin | Member
-              deriving (Eq, Ord, Read, Show, Data, Typeable)
+data UserRank = Member | Admin
+              deriving (Eq, Ord, Enum, Read, Show, Data, Typeable)
 instance Version UserRank
 $(deriveSerialize ''UserRank)
 
 type Username = ByteString
 type Password = ByteString
 
-data User = User { username :: Username
-                 , password :: Password
-                 , rank :: UserRank
+data User = User { userName :: Username
+                 , userPassword :: Password
+                 , userRank :: UserRank
                  }
             deriving (Eq, Ord, Read, Show, Data, Typeable)
 
@@ -78,18 +75,12 @@ $(deriveSerialize ''User)
 -- provided externally.
 type SessionId = ByteString
 
--- | Returns the username
-decodeSessionId :: SessionId -> Maybe Username
-decodeSessionId sid | B.length salt < 2 = Nothing
-                    | otherwise         = Just username
-  where (username, salt) = B.break (/= '|') sid
-
 -- | A session with all the logged 
 type UsersSessions = HashSet SessionId
 
 -- | The Users data type
-data Users = Users { users :: UsersMap
-                   , session :: UsersSessions
+data Users = Users { usersMap :: UsersMap
+                   , usersSessions :: UsersSessions
                    }
              deriving (Eq, Ord, Read, Show, Data, Typeable)
 
@@ -104,7 +95,7 @@ instance Component Users where
 
 -- | Gets the map of users
 getUsers :: Query Users UsersMap
-getUsers = asks users
+getUsers = asks usersMap
 
 -- | Defines how many passes of the hash function
 hashStrength :: Int
@@ -112,25 +103,46 @@ hashStrength = 12
 
 -- | Gets username and password and updates the users map
 insertUser :: ByteString -> ByteString -> Salt -> Update Users ()
-insertUser username passwd salt =
-  modify (\s -> s { users = M.insert username user' (users s) })
+insertUser un passwd salt =
+  modify (\s -> s { usersMap = M.insert un user' (usersMap s) })
   where
     hashedp = makePasswordSalt passwd salt hashStrength
-    user'   = User username hashedp Member
+    user'   = User un hashedp Member
+
+-- | Get the set with all the active sessions
+getSessions :: Query Users UsersSessions
+getSessions = asks usersSessions
 
 -- | Inserts a new session. Accepts a salt since I'll generate the
 -- random bit with genSaltIO.
 insertSession :: Username -> Salt -> Update Users String
-insertSession username salt = do
-  modify (\s -> s { session = S.insert sid (session s) })
+insertSession un salt = do
+  modify (\s -> s { usersSessions = S.insert sid (usersSessions s) })
   return $ B.unpack sid
   where
-    sid = B.concat [username, "|", exportSalt salt]
+    sid = B.concat [un, "|", exportSalt salt]
 
 deleteSession :: SessionId -> Update Users ()
-deleteSession sid = modify (\s -> s { session = S.delete sid (session s) })
+deleteSession sid =
+  modify (\s -> s { usersSessions = S.delete sid (usersSessions s) })
+
+-- | Returns the User if the session is present, Nothing if the
+-- session is not. It also returns Nothing if the session id is malformed.
+checkSession :: SessionId -> Query Users (Maybe User)
+checkSession sid
+  | B.length salt < 2 = return Nothing
+  | otherwise         = do
+    sessions <- getSessions
+    if S.member sid sessions
+      then do
+        users <- getUsers
+        case M.lookup username users of
+          Just user -> return $ Just user
+          Nothing   -> return Nothing
+      else return Nothing
+  where (username, salt) = B.break (== '|') sid
 
 -- Generate the query events
 $(mkMethods ''Users [ 'getUsers, 'insertUser
-                    , 'insertSession, 'deleteSession
+                    , 'getSessions, 'insertSession, 'deleteSession, 'checkSession
                     ])
