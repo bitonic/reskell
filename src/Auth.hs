@@ -11,6 +11,8 @@ import Happstack.State (query, update)
 
 import qualified Data.ByteString.Char8 as B
 
+import qualified Data.Map as M
+
 import Text.Digestive.Types  ((<++))
 import Text.Digestive.Blaze.Html5 (childErrors)
 import Text.Digestive.Forms.Happstack (eitherHappstackForm)
@@ -25,7 +27,6 @@ import Templates
 
 logout :: ServerPart Response
 logout = do
-  decodeBody appPolicy
   rq <- getDataFn $ lookCookieValue sessionCookieName
   case rq of
     (Left _)    -> ok $ toResponse "You are already logged in."
@@ -40,11 +41,11 @@ register = do
   decodeBody appPolicy
   r <- eitherHappstackForm (registerForm users <++ childErrors) "register-form"
   case r of
-    Left form' -> ndResponse $ registerTemplate $
-                  formTemplate form' "/users/register" "Register"
+    Left form' -> renderTemplate $ registerTemplate $
+                  formHtml form' "/users/register" "Register"
     Right (UserData username passwd) -> do
       liftIO genSaltIO >>= (update . InsertUser username passwd)
-      ndResponse registerSuccessTemplate
+      renderTemplate registerSuccessTemplate
 
 -- | The login page. It uses the form from Forms, and tries to get a
 -- "redir" parameter which tells where to go after the login. If it
@@ -57,7 +58,7 @@ login = do
   case r of
     Left form' -> do
       q <- liftM rqQuery askRq
-      ndResponse $ loginTemplate $ formTemplate form' ("/users/login" ++ q) "Login"
+      renderTemplate $ loginTemplate $ formHtml form' ("/users/login" ++ q) "Login"
     Right (UserData u _) -> do
       sid <- liftIO genSaltIO >>= (update . InsertSession u)
       addCookie Session $ mkCookie sessionCookieName sid
@@ -70,19 +71,15 @@ login = do
 -- user is logged in and his rank is less than the one required, it
 -- displays a 403 error.
 requireRank :: UserRank -> ServerPart Response -> ServerPart Response
-requireRank rank response = decodeBody appPolicy >> checkSession
+requireRank rank response = do
+  userM <- getUser
+  case userM of
+    Just user -> checkRank user
+    Nothing   -> do
+      redir <- getFullUri
+      seeOtherN $ "/users/login?redir=" ++ redir
   where
-    checkSession = do
-      sid <- liftM B.pack $
-             getDataOr (lookCookieValue sessionCookieName) (\_ -> return "")
-      userM <- query $ CheckSession sid
-      case userM of
-        Just user -> checkRank user
-        Nothing   -> displayLogin
     checkRank user =
       if userRank user < rank
         then forbidden $ toResponse "Access denied."
         else response
-    displayLogin = do
-      redir <- liftM (render . rqUri) askRq
-      seeOtherN ("/users/login?redir=" ++ redir)

@@ -4,13 +4,22 @@ module Templates (
   baseTemplate,
   registerTemplate, registerSuccessTemplate,
   loginTemplate,
-  formTemplate
+  formHtml,
+  
+  renderTemplate
   ) where
+
+import State
+import Utils
+
+import Happstack.Server
+
+import Control.Monad.Reader
 
 import Data.Text (Text)
 import qualified Data.Text as T
 
-import Text.Blaze (text, stringValue, unsafeByteString)
+import Text.Blaze (text, stringValue, unsafeByteString, toValue)
 import Text.Blaze.Internal (HtmlM)
 import Text.Blaze.Html5 ((!))
 import qualified Text.Blaze.Html5 as H
@@ -18,47 +27,65 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Text.Digestive.Forms.Html (FormHtml, renderFormHtml)
 
-baseTemplate :: Text -> H.Html -> H.Html
-baseTemplate title body user = do
-  H.docType
-  H.html $ do
-    H.head $ do
-      H.title $ text $ T.concat ["Haskell News - ", title]
-      H.link ! A.rel "stylesheet" ! A.type_ "text/css" ! A.href "/css/style.css"
-    H.body $ do
-      H.div ! A.id "header" $ do
-        H.img ! A.src "/images/haskellLogo.png"
-          ! A.alt "Haskell logo" ! A.id "logo"
-        H.h1 $ H.a ! A.href "/" $ text "Haskell News"
-        menuSeparator
-        text "bla"
-        menuSeparator
-        text "loal"
-        H.div ! A.id "userMenu" $ do
-          text "lol"
-          H.img ! A.src "/images/s.gif" ! A.alt "Spacing, sorry"
-      H.div ! A.id "container" $ body
-  where
-    menuSeparator = unsafeByteString " &middot; "
+data TemplateContext = TemplateContext { tmplUser :: (Maybe User)
+                                       , tmplUri :: String
+                                       }
+                       
+type Template = Reader TemplateContext H.Html
 
-registerTemplate :: H.Html -> H.Html
-registerTemplate form = baseTemplate "Register" $ do
+baseTemplate :: Text -> H.Html -> Template
+baseTemplate title body = do
+  liftM layout ask
+  where
+    layout ctx = do
+      H.docType
+      H.html $ do
+        H.head $ do
+          H.title $ text $ T.concat ["Haskell News - ", title]
+          H.link ! A.rel "stylesheet" ! A.type_ "text/css" ! A.href "/css/style.css"
+        H.body $ do
+          H.div ! A.id "header" $ do
+            H.img ! A.src "/images/haskellLogo.png"
+              ! A.alt "Haskell logo" ! A.id "logo"
+            H.h1 $ H.a ! A.href "/" $ text "Haskell News"
+            menuSeparator
+            text "bla"
+            H.div ! A.id "userMenu" $ do
+              H.img ! A.src "/images/s.gif" ! A.alt "Spacing, sorry"
+              case tmplUser ctx of
+                Just user -> loggedIn
+                Nothing   -> notLoggedIn ctx
+          H.div ! A.id "container" $ body
+    menuSeparator = unsafeByteString " &middot; "
+    loggedIn = H.a ! A.href "/users/logout"  $ text "Logout"
+    notLoggedIn ctx =
+      H.a ! A.href (toValue $ "/users/login?redir=" ++ (tmplUri ctx)) $ text "Login"
+
+formHtml :: FormHtml (HtmlM a) -> String -> String -> H.Html
+formHtml form action submit = do
+  let (formHtml, enctype) = renderFormHtml form
+  H.form ! A.enctype (H.stringValue $ show enctype)
+    ! A.method "POST" ! A.action (stringValue action) $ do
+      formHtml
+      H.input ! A.type_ "submit" ! A.value (stringValue submit)
+
+registerTemplate :: H.Html -> Template
+registerTemplate form  = baseTemplate "Register" $ do
   H.h2 $ text "Create an account"
   form
 
-registerSuccessTemplate :: H.Html
+registerSuccessTemplate :: Template
 registerSuccessTemplate = baseTemplate "Register" $
                           text "Your registration was successful."
                           
-loginTemplate :: H.Html -> H.Html
+loginTemplate :: H.Html -> Template
 loginTemplate form = baseTemplate "Login" $ do
   H.h2 $ text "Login"
   form
 
-formTemplate :: FormHtml (HtmlM a) -> String -> String -> H.Html
-formTemplate form action submit = do
-  let (formHtml, enctype) = renderFormHtml form
-  H.form ! A.enctype (H.stringValue $ show enctype)
-         ! A.method "POST" ! A.action (stringValue action) $ do
-    formHtml
-    H.input ! A.type_ "submit" ! A.value (stringValue submit)
+renderTemplate :: Template -> ServerPart Response
+renderTemplate templ = do
+  user <- getUser
+  uri <- getFullUri
+  let html = runReader templ (TemplateContext user uri)
+  ndResponse html

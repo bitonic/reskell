@@ -45,7 +45,6 @@ body {
 
 #header a {
     color: #fff;
-    text-decoration: none;
 }
 
 h1 {
@@ -55,6 +54,10 @@ h1 {
     font-family: "Adelle Basic", Verdana, sans;
     height: 26px;
     margin: 0 0.2em 0 0;
+}
+
+h1 a {
+    text-decoration: none;
 }
 
 #logo {
