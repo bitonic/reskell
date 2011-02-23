@@ -9,11 +9,11 @@ module State (
   module State.Users
   ) where
 
-import State.Users
-
 import Data.Data (Data, Typeable)
 
 import Happstack.State
+
+import State.Users
 
 -- | A dummy component that depends on all the others
 data AppState = AppState

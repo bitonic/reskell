@@ -20,6 +20,7 @@ time, mark, audio, video {
     font-variant:normal;
 }
 
+/* Assorted tags */
 body {
     font-family: Verdana, sans;
     margin: 0 auto 0 auto;
@@ -66,12 +67,12 @@ h1 a {
     margin: 0 0.2em 0 0;
 }
 
-#userMenu {
+#user-menu {
     float:right;
     vertical-align:middle;
 }
 
-#userMenu img {
+#user-menu img {
     height:26px;
     width:1px;
     vertical-align:text-bottom;
@@ -88,4 +89,23 @@ h2 {
     color: #828282;
     font-weight: bold;
     margin: 0.1em 0;
+}
+
+/* Digestive forms */
+form {
+    margin: 0.5em 0;
+}
+
+form input {
+    display: block;
+    margin: 0.1em 0 0.3em 0;
+}
+
+.digestive-error-list {
+    list-style:none;
+}
+
+.digestive-error {
+    color:#f00;
+    font-weight:bold;
 }

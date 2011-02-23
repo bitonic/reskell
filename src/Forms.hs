@@ -1,7 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Forms (
-  UserData(..), registerForm, loginForm,
+  RegisterData(..), registerForm,
+  LoginData(..), loginForm,
+  UserCPData(..), userCPForm
   ) where
 
 import Control.Applicative ((<$>), (<*>))
@@ -23,29 +25,54 @@ import Text.Blaze.Html5 (Html)
 
 import State
 
-data UserData = UserData Username Password
+data RegisterData = RegisterData Username Password Password
+
+registerValidator :: Monad m
+                     => UsersMap -> Validator m Html RegisterData
+registerValidator users = mconcat
+  [ check "Username missing" $ \(RegisterData u _ _) -> B.length u /= 0
+  , check "Username already taken" $ \(RegisterData u _ _) ->
+     not $ u `M.member` users
+  , check "The passwords don't match" $ \(RegisterData _ p1 p2) -> p1 == p2
+  , check "The password must be longer than 5 characters" $ \(RegisterData _ p _) ->
+     B.length p > 4
+  ]
 
 registerForm :: (Monad m, Functor m)
-                => UsersMap -> HappstackForm m Html BlazeFormHtml UserData
-registerForm users = (`validateMany` [vUsername, vPassword]) $
-                     UserData
+                => UsersMap -> HappstackForm m Html BlazeFormHtml RegisterData
+registerForm users = (`validate` registerValidator users) $
+                     RegisterData
                      <$> label "Username: " ++> (B.pack <$> inputText Nothing)
                      <*> label "Password: " ++> (B.pack <$> inputPassword)
-  where
-    vUsername =
-      mconcat [ check "Username missing" $ \(UserData u _) -> B.length u /= 0
-              , check "Username already taken" $ \(UserData u _) ->
-                 not $ u `M.member` users
-              ]
-    vPassword =
-      check "The password must be longer than 5 characters" $ \(UserData _ p) ->
-        B.length p > 4
+                     <*> label "Verify password: " ++> (B.pack <$> inputPassword)
+      
+      
+
+data LoginData = LoginData Username Password
 
 loginForm :: (Monad m, Functor m)
-             => UsersMap -> HappstackForm m Html BlazeFormHtml UserData
-loginForm users = (`validate` vUser) $ UserData
+             => UsersMap -> HappstackForm m Html BlazeFormHtml LoginData
+loginForm users = (`validate` validator) $ LoginData
                   <$> label "Username: " ++> (B.pack <$> inputText Nothing)
                   <*> label "Password: " ++> (B.pack <$> inputPassword)
   where
-    vUser = check "Incorrect username/password" $ \(UserData u p) ->
+    validator = check "Incorrect username/password" $ \(LoginData u p) ->
       fromMaybe False $ fmap ((verifyPassword p) . userPassword) $ M.lookup u users
+
+
+
+data UserCPData = UserCPData Password Password Password
+
+userCPValidator user users = mconcat
+  [ check "New password missing" $ \(UserCPData _ p _) -> B.length p /= 0
+  , check "Wrong old password" $ \(UserCPData p _ _) ->
+     fromMaybe False $ fmap ((verifyPassword p) . userPassword) $ M.lookup user users
+  , check "The new passwords don't match" $ \(UserCPData _ p1 p2) -> p1 == p2
+  ]
+
+userCPForm :: (Monad m, Functor m)
+              => Username -> UsersMap -> HappstackForm m Html BlazeFormHtml UserCPData
+userCPForm user users = (`validate` userCPValidator user users) $ UserCPData
+                        <$> label "Old password: " ++> (B.pack <$> inputPassword)
+                        <*> label "New password: " ++> (B.pack <$> inputPassword)
+                        <*> label "Verify new password: " ++> (B.pack <$> inputPassword)

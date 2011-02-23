@@ -28,7 +28,6 @@ getDataOr rqData handler = getDataFn rqData >>= either handler return
 
 getFullUri :: ServerPart String
 getFullUri = do
-  decodeBody appPolicy
   rq <- askRq
   return $ rqUri rq ++ (rqQuery rq)
 
