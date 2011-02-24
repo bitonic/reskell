@@ -4,7 +4,7 @@
 
 module State.Users (
   UserRank(..), Username, Password, User(..),
-  Users, UsersMap, SessionId,
+  Users, UserMap, SessionId,
   GetUsers(..), InsertUser(..),
   InsertSession(..), DeleteSession(..), GetSessions(..), CheckSession(..)
   ) where
@@ -34,13 +34,13 @@ import Crypto.PasswordStore
 -- put this somewhere else.
 instance Version (HashMap a b) where mode = Primitive
 instance (Serialize a, Serialize b, Ord a, Hashable a) => Serialize (HashMap a b) where
-    getCopy = contain $ fmap M.fromList safeGet
-    putCopy = contain . safePut . M.toList
+  getCopy = contain $ fmap M.fromList safeGet
+  putCopy = contain . safePut . M.toList
 
 instance Version (HashSet a) where mode = Primitive
 instance (Serialize a, Ord a, Hashable a) => Serialize (HashSet a) where
-    getCopy = contain $ fmap S.fromList safeGet
-    putCopy = contain . safePut . S.toList
+  getCopy = contain $ fmap S.fromList safeGet
+  putCopy = contain . safePut . S.toList
 
 deriving instance Typeable Salt
 instance Version Salt where
@@ -66,7 +66,7 @@ data User = User { userName :: Username
             deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 -- | A map with all the users
-type UsersMap = HashMap Username User
+type UserMap = HashMap Username User
 
 instance Version User
 $(deriveSerialize ''User)
@@ -80,7 +80,7 @@ type UsersSessions = HashSet SessionId
 
 -- | The Users data type, stores all the User(s) and the set of
 -- sessions for the logged in users
-data Users = Users { usersMap :: UsersMap
+data Users = Users { usersMap :: UserMap
                    , usersSessions :: UsersSessions
                    }
              deriving (Eq, Ord, Read, Show, Data, Typeable)
@@ -101,7 +101,7 @@ instance Component Users where
 -- Query / Updates
 
 -- | Gets the map of users
-getUsers :: Query Users UsersMap
+getUsers :: Query Users UserMap
 getUsers = asks usersMap
 
 -- | Defines how many passes of the hash function

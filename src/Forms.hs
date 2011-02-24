@@ -25,10 +25,12 @@ import Text.Blaze.Html5 (Html)
 
 import State
 
+
+
 data RegisterData = RegisterData Username Password Password
 
 registerValidator :: Monad m
-                     => UsersMap -> Validator m Html RegisterData
+                     => UserMap -> Validator m Html RegisterData
 registerValidator users = mconcat
   [ check "Username missing" $ \(RegisterData u _ _) -> B.length u /= 0
   , check "Username already taken" $ \(RegisterData u _ _) ->
@@ -39,7 +41,7 @@ registerValidator users = mconcat
   ]
 
 registerForm :: (Monad m, Functor m)
-                => UsersMap -> HappstackForm m Html BlazeFormHtml RegisterData
+                => UserMap -> HappstackForm m Html BlazeFormHtml RegisterData
 registerForm users = (`validate` registerValidator users) $
                      RegisterData
                      <$> label "Username: " ++> (B.pack <$> inputText Nothing)
@@ -51,7 +53,7 @@ registerForm users = (`validate` registerValidator users) $
 data LoginData = LoginData Username Password
 
 loginForm :: (Monad m, Functor m)
-             => UsersMap -> HappstackForm m Html BlazeFormHtml LoginData
+             => UserMap -> HappstackForm m Html BlazeFormHtml LoginData
 loginForm users = (`validate` validator) $ LoginData
                   <$> label "Username: " ++> (B.pack <$> inputText Nothing)
                   <*> label "Password: " ++> (B.pack <$> inputPassword)
@@ -71,7 +73,7 @@ userCPValidator user users = mconcat
   ]
 
 userCPForm :: (Monad m, Functor m)
-              => Username -> UsersMap -> HappstackForm m Html BlazeFormHtml UserCPData
+              => Username -> UserMap -> HappstackForm m Html BlazeFormHtml UserCPData
 userCPForm user users = (`validate` userCPValidator user users) $ UserCPData
                         <$> label "Old password: " ++> (B.pack <$> inputPassword)
                         <*> label "New password: " ++> (B.pack <$> inputPassword)
