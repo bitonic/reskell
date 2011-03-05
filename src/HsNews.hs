@@ -6,7 +6,7 @@ import Control.Monad (msum)
 import Control.Monad.Trans (liftIO)
 import Control.Exception (bracket)
 
-import Text.Digestive.Types  ((<++))
+import Text.Digestive.Types ((<++))
 import Text.Digestive.Blaze.Html5 (childErrors)
 import Text.Digestive.Forms.Happstack (eitherHappstackForm)
 

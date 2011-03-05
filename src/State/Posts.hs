@@ -1,96 +1,73 @@
-{-# LANGUAGE DeriveDataTypeable, TemplateHaskell #-}
-module State.Posts where
+{-# LANGUAGE OverloadedStrings #-}
+module State.Posts (
+  -- From PostMap.hs
+  PostId, PostTime, PostScore,
+  Post(..), PostIndex(..), PostLookup(..),
+  
+  PostMap,
+  
+  Submission(..), Comment(..),
+  
+  insertPost, emptyPostMap, fromPostList, toPostList, lookupPost
+  ) where
+  
 
-import Control.Monad (liftM)
-import Control.Monad.Reader (asks)
-
-import Data.Either
-import Data.Data (Data, Typeable)
 import Data.ByteString (ByteString)
 
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as M
+import Data.Ord (Ordering(..))
 
-import Data.Sequence (Seq)
-import qualified Data.Sequence as Seq
-import qualified Data.Foldable as Fold
-import Data.Hashable (Hashable)
-
-import Happstack.State
-
+import State.Posts.PostMap
 import State.Users
 
-type PostId = Int
-type PostTime = Int
-type PostScore = Float
-type PostUrl = ByteString
-type PostSeq = Seq PostId
+data Submission =
+  Submission { submissionId :: PostId
+             , submissionAuthor :: Username
+             , submissionContent :: Either ByteString ByteString
+             , submissionVotes :: Int
+             , submissionScore :: PostScore
+             , submissionTime :: PostTime
+             }
 
-
---------------------------------------------------------------------------------
-
-instance Version (Seq a) where mode = Primitive
-instance (Serialize a, Ord a, Hashable a) => Serialize (Seq a) where
-  getCopy = contain $ fmap Seq.fromList safeGet
-  putCopy = contain . safePut . Fold.toList
+instance Eq Submission where
+  s1 == s2 = submissionId s1 == submissionId s2
   
---------------------------------------------------------------------------------
+instance Post Submission where
+  postId = submissionId
+  postAuthor = submissionAuthor
+  postScore = submissionScore
 
-data Post = Post { postId :: PostId
-                 , postContent :: Either ByteString PostUrl
-                 , postUpVotes :: Int
-                 , postDownVotes :: Int
-                 , postTime :: PostTime
-                 , postComments :: PostSeq
-                 }
-          deriving (Eq, Ord, Read, Show, Data, Typeable)
+data Comment =
+  Comment { commentId :: PostId
+          , commentAuthor :: Username
+          , commentContent :: ByteString
+          , commentUpVotes :: Int
+          , commentDownVotes :: Int
+          , commentScore :: PostScore
+          , commentTime :: PostTime
+          }
 
-{-
-instance Eq Post where
-  p1 == p2 = postId p1 == postId p2
+instance Eq Comment where
+  c1 == c2 = commentId c1 == commentId c2
+  
+instance Post Comment where
+  postId = commentId
+  postAuthor = commentAuthor
+  postScore = commentScore
 
-instance Ord Post where
-  comparable p1 p2 = comparable (postId p1) (postId p2)
--}
+type PostMap = IdMap
 
-instance Version Post
-$(deriveSerialize ''Post)
 
-postScore :: Post -> PostTime -> PostScore
-postScore p now = tf (postUpVotes p - postDownVotes p - 1) /
-                  ((tf (now - postTime p) / 60) ** 1.5)
-  where tf = fromInteger . toInteger
+insertPost :: (Post a) => a -> PostMap a -> PostMap a
+insertPost = insertId
 
-type PostMap = IntMap Post
+emptyPostMap :: (Post a) => PostMap a
+emptyPostMap = IdEmpty
 
-data Posts = Posts { postMap :: PostMap
-                   , newSubmissions :: PostSeq
-                   , hotSubmissions :: PostSeq
-                   , allComments :: PostSeq
-                   }
-           deriving (Eq, Ord, Read, Show, Data, Typeable)
+fromPostList :: (Post a) => [a] -> PostMap a
+fromPostList = fromListId
 
-instance Version Posts
-$(deriveSerialize ''Posts)
+toPostList :: (Post a) => IdMap a -> [a]
+toPostList = toListId
 
--- Queries
-
-slicePosts :: (Monad m) => Int -> Int -> m PostSeq -> m PostSeq
-slicePosts from n = liftM (Seq.take n . Seq.drop from)
-
-getHotSubmissions :: Int -> Int -> Query Posts PostSeq
-getHotSubmissions from n = slicePosts from n $ asks hotSubmissions
-
-getNewSubmissions :: Int -> Int -> Query Posts PostSeq
-getNewSubmissions from n = slicePosts from n $ asks newSubmissions
-
-getAllComments :: Int -> Int -> Query Posts PostSeq
-getAllComments from n = slicePosts from n $ asks allComments
-
-getComments :: Int -> Int -> Post -> PostSeq
-getComments from n post = Seq.take n . Seq.drop from . postComments $ post
-
-getPost :: PostId -> Query Posts (Maybe Post)
-getPost id = liftM (M.lookup id) $ asks postMap
-
--- Updates... the hard part
+lookupPost :: (Post a) => PostLookup -> PostMap a -> [a]
+lookupPost = lookupIdIndex
