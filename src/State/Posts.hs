@@ -13,8 +13,9 @@ import Database.Redis.ByteStringClass
 
 import Data.Time.Clock
 
-import Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as B
+import Prelude hiding (concat)
+import Data.ByteString (ByteString, concat)
+import qualified Data.ByteString.UTF8 as U
 import Data.Maybe (fromJust)
 
 import Control.Monad (liftM)
@@ -32,11 +33,34 @@ data PostContent = Link ByteString ByteString  -- Title and url
                  | Comment PostId ByteString   -- Text and parent post
                  deriving (Show, Read)
 
+
+joinBS [bs] = bs
+joinBS (bs : rest) = concat [bs, U.fromString "\x9999", joinBS rest]
+
+splitBS bs | U.length rest == 0 = [bs']
+           | otherwise = bs' : splitBS (snd $ U.break (/= '\x9999') rest)
+  where
+    (bs', rest) = U.break (== '\x9999') bs
+
+instance BS PostContent where
+  toBS (Link bs1 bs2) = joinBS [U.fromString "link", bs1, bs2]
+  toBS (Ask bs1 bs2) = joinBS [U.fromString "ask", bs1, bs2]
+  toBS (Comment id bs) = joinBS [U.fromString "comment", toBS id, bs]
+
+  fromBS bs | t == U.fromString "link" = Link (fromBS fst) (fromBS snd)
+            | t == U.fromString "ask" = Ask (fromBS fst) (fromBS snd)
+            | t == U.fromString "comment" = Comment (fromBS fst) (fromBS snd)
+    where (t : fst : snd : _) = splitBS bs
+
+instance BS UTCTime where
+  toBS = U.fromString . show
+  fromBS = read . U.toString
+
+
 data Post = Post { postId :: PostId
                  , postTime :: PostTime
                  , postAuthor :: PostAuthor
-                 , postUpVotes :: PostVotes
-                 , postDownVotes :: PostVotes
+                 , postVotes :: PostVotes
                  , postContent :: PostContent
                  , postComments :: [Post]
                  }
@@ -44,7 +68,7 @@ data Post = Post { postId :: PostId
 
 
 (<:>) :: (BS s1, BS s2) => s1 -> s2 -> ByteString
-s1 <:> s2 = B.concat [toBS s1, toBS ":", toBS s2]
+s1 <:> s2 = concat [toBS s1, toBS ":", toBS s2]
 
 idCounter = redisPrefix <:> "idCounter"
 
@@ -55,19 +79,18 @@ comments = redisPrefix <:> "comments"
 postKey pid = redisPrefix <:> "posts" <:> pid
 
 getPostParam post p =
-  liftM (read . fromJust) (hget post p >>= fromRBulk)
+  liftM (fromBS . fromJust) (hget post p >>= fromRBulk)
 
 
 
 insertPost :: PostId -> Username -> PostContent -> RedisM ()
 insertPost pid author content = do
   time <- liftIO $ getCurrentTime
-  hmset (postKey pid) [ ("id", show pid)
-                      , ("time", show time)
-                      , ("author", show author)
-                      , ("upVotes", show 0)
-                      , ("downVotes", show 0)
-                      , ("content", show content)
+  hmset (postKey pid) [ ("id", toBS pid)
+                      , ("time", toBS time)
+                      , ("author", author)
+                      , ("votes", toBS (0 :: Int))
+                      , ("content", toBS content)
                       ]
   return ()
 
@@ -76,14 +99,12 @@ getPostSingle pid = do
   pid <- getPostParam key "id"
   time <-  getPostParam key "time"
   author <-  getPostParam key "author"
-  upVotes <-  getPostParam key "upVotes"
-  downVotes <-  getPostParam key "downVotes"
+  votes <-  getPostParam key "votes"
   content <-  getPostParam key "content"
   return $ Post { postId = pid
                 , postTime = time
                 , postAuthor = author
-                , postUpVotes = upVotes
-                , postDownVotes = downVotes
+                , postVotes = votes
                 , postContent = content
                 , postComments = []
                 }
@@ -94,15 +115,8 @@ getPost pid = do
   post <- getPostSingle pid
   commentsIds <- liftM fromJust $
                  (lrange (postKey pid <:> "comments") takeAll) >>= fromRMulti
-  comments <- mapM (\b -> fromRBulk b >>= getPost . read . fromJust) commentsIds
+  comments <- mapM (\b -> fromRBulk b >>= getPost . fromBS . fromJust) commentsIds
   return post { postComments = comments }
   
-
-insertSubmission :: Username -> ByteString -> ByteString -> RedisM PostId
-insertSubmission user title url = do
-  pid <- incr idCounter >>= fromRInt
-  insertPost pid user (Link title url)
-  return pid
-
-postQuery :: RedisM a -> IO a 
+postQuery :: RedisM a -> IO a
 postQuery q = redisConn >>= \c -> runWithRedis c q
