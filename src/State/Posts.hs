@@ -1,73 +1,108 @@
-{-# LANGUAGE OverloadedStrings #-}
 module State.Posts (
-  -- From PostMap.hs
-  PostId, PostTime, PostScore,
-  Post(..), PostIndex(..), PostLookup(..),
+  PostId, PostTime, PostAuthor, PostScore, PostVotes, PostContent(..), Post(..),
   
-  PostMap,
-  
-  Submission(..), Comment(..),
-  
-  insertPost, emptyPostMap, fromPostList, toPostList, lookupPost
+  getPost, insertSubmission
   ) where
-  
+
+import State.Users
+import Config
+
+import Database.Redis.Monad
+import Database.Redis.Monad.State
+import Database.Redis.ByteStringClass
+
+import Data.Time.Clock
 
 import Data.ByteString (ByteString)
+import qualified Data.ByteString.Char8 as B
+import Data.Maybe (fromJust)
 
-import Data.Ord (Ordering(..))
+import Control.Monad (liftM)
+import Control.Monad.Trans (liftIO)
 
-import State.Posts.PostMap
-import State.Users
+import Happstack.Server
 
-data Submission =
-  Submission { submissionId :: PostId
-             , submissionAuthor :: Username
-             , submissionContent :: Either ByteString ByteString
-             , submissionVotes :: Int
-             , submissionScore :: PostScore
-             , submissionTime :: PostTime
-             }
+type PostId = Int
+type PostTime = UTCTime
+type PostAuthor = Username
+type PostScore = Float
+type PostVotes = Int
+data PostContent = Link ByteString ByteString  -- Title and url
+                 | Ask ByteString ByteString   -- Title and text
+                 | Comment PostId ByteString   -- Text and parent post
+                 deriving (Show, Read)
 
-instance Eq Submission where
-  s1 == s2 = submissionId s1 == submissionId s2
+data Post = Post { postId :: PostId
+                 , postTime :: PostTime
+                 , postAuthor :: PostAuthor
+                 , postUpVotes :: PostVotes
+                 , postDownVotes :: PostVotes
+                 , postContent :: PostContent
+                 , postComments :: [Post]
+                 }
+          deriving (Show)
+
+
+(<:>) :: (BS s1, BS s2) => s1 -> s2 -> ByteString
+s1 <:> s2 = B.concat [toBS s1, toBS ":", toBS s2]
+
+idCounter = redisPrefix <:> "idCounter"
+
+links = redisPrefix <:> "links"
+asks = redisPrefix <:> "asks"
+submissions = redisPrefix <:> "submissions"
+comments = redisPrefix <:> "comments"
+postKey pid = redisPrefix <:> "posts" <:> pid
+
+getPostParam post p =
+  liftM (read . fromJust) (hget post p >>= fromRBulk)
+
+
+
+insertPost :: PostId -> Username -> PostContent -> RedisM ()
+insertPost pid author content = do
+  time <- liftIO $ getCurrentTime
+  hmset (postKey pid) [ ("id", show pid)
+                      , ("time", show time)
+                      , ("author", show author)
+                      , ("upVotes", show 0)
+                      , ("downVotes", show 0)
+                      , ("content", show content)
+                      ]
+  return ()
+
+getPostSingle :: PostId -> RedisM Post
+getPostSingle pid = do
+  pid <- getPostParam key "id"
+  time <-  getPostParam key "time"
+  author <-  getPostParam key "author"
+  upVotes <-  getPostParam key "upVotes"
+  downVotes <-  getPostParam key "downVotes"
+  content <-  getPostParam key "content"
+  return $ Post { postId = pid
+                , postTime = time
+                , postAuthor = author
+                , postUpVotes = upVotes
+                , postDownVotes = downVotes
+                , postContent = content
+                , postComments = []
+                }
+  where key = postKey pid
+
+getPost :: PostId -> RedisM Post
+getPost pid = do
+  post <- getPostSingle pid
+  commentsIds <- liftM fromJust $
+                 (lrange (postKey pid <:> "comments") takeAll) >>= fromRMulti
+  comments <- mapM (\b -> fromRBulk b >>= getPost . read . fromJust) commentsIds
+  return post { postComments = comments }
   
-instance Post Submission where
-  postId = submissionId
-  postAuthor = submissionAuthor
-  postScore = submissionScore
 
-data Comment =
-  Comment { commentId :: PostId
-          , commentAuthor :: Username
-          , commentContent :: ByteString
-          , commentUpVotes :: Int
-          , commentDownVotes :: Int
-          , commentScore :: PostScore
-          , commentTime :: PostTime
-          }
+insertSubmission :: Username -> ByteString -> ByteString -> RedisM PostId
+insertSubmission user title url = do
+  pid <- incr idCounter >>= fromRInt
+  insertPost pid user (Link title url)
+  return pid
 
-instance Eq Comment where
-  c1 == c2 = commentId c1 == commentId c2
-  
-instance Post Comment where
-  postId = commentId
-  postAuthor = commentAuthor
-  postScore = commentScore
-
-type PostMap = IdMap
-
-
-insertPost :: (Post a) => a -> PostMap a -> PostMap a
-insertPost = insertId
-
-emptyPostMap :: (Post a) => PostMap a
-emptyPostMap = IdEmpty
-
-fromPostList :: (Post a) => [a] -> PostMap a
-fromPostList = fromListId
-
-toPostList :: (Post a) => IdMap a -> [a]
-toPostList = toListId
-
-lookupPost :: (Post a) => PostLookup -> PostMap a -> [a]
-lookupPost = lookupIdIndex
+postQuery :: RedisM a -> IO a 
+postQuery q = redisConn >>= \c -> runWithRedis c q
