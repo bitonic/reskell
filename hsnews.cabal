@@ -36,6 +36,7 @@ executable hsnews
                      pwstore-fast >= 2.1,
                      containers,
                      hashmap,
-                     hashable
+                     hashable,
+                     redis >= 0.10.1
 
   ghc-options:       -Wall -fno-warn-unused-do-bind

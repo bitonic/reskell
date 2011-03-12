@@ -11,15 +11,18 @@ import State
 import Config
 
 import Happstack.Server
+import Happstack.Server.SURI (ToSURI)
 import Happstack.State (query)
 
 import Data.ByteString.Char8 as B
 
 --------------------------------------------------------------------------------
 -- | Ensures that the path ends
+ndResponse :: ToMessage a => a -> ServerPart Response
 ndResponse a = nullDir >> (ok $ toResponse a)
 
 -- | Redirects with no message
+seeOtherN :: ToSURI uri => uri -> ServerPart Response
 seeOtherN uri = seeOther uri $ toResponse ""
 
 -- | Tries to get data with rqData, if it fails it passes the error to

@@ -5,7 +5,7 @@
 module State.Posts (
   PostId, PostTime, PostScore, PostVotes, PostContent(..), Post(..),
   
-  insertPost, getPostSingle, getPost
+  insertPost, getPostSingle, getPost, deletePost
   ) where
 
 import Config

@@ -6,12 +6,9 @@ import Control.Monad (liftM)
 import Control.Monad.Trans (liftIO)
 
 import Happstack.Server
-import Happstack.Server.SURI (render)
 import Happstack.State (query, update)
 
 import qualified Data.ByteString.Char8 as B
-
-import qualified Data.Map as M
 
 import Text.Digestive.Types  ((<++))
 import Text.Digestive.Blaze.Html5 (childErrors)
