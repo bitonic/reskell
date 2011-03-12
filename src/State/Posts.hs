@@ -36,7 +36,6 @@ import Data.List (delete)
 
 import Happstack.Server (ServerPart)
 import Happstack.State
-import Happstack.Data.Serialize
 
 -------------------------------------------------------------------------
 
@@ -61,9 +60,12 @@ data Post = Post { postId :: PostId
 -------------------------------------------------------------------------
 -- redis functions
 
+joinBS :: [ByteString] -> ByteString
+joinBS [] = U.fromString ""
 joinBS [bs] = bs
 joinBS (bs : rest) = concat [bs, U.fromString "\x9999", joinBS rest]
 
+splitBS :: ByteString -> [ByteString]
 splitBS bs | U.length rest == 0 = [bs']
            | otherwise = bs' : splitBS (snd $ U.break (/= '\x9999') rest)
   where
@@ -81,6 +83,7 @@ instance BS PostContent where
             | t == U.fromString "comment" = Comment (fromBS $ contents !! 0)
                                                    (fromBS $ contents !! 1)
                                                    (fromBS $ contents !! 2)
+            | otherwise = error "Malformed PostContent."
     where (t : contents) = splitBS bs
 
 instance BS UTCTime where
@@ -90,12 +93,15 @@ instance BS UTCTime where
 (<:>) :: (BS s1, BS s2) => s1 -> s2 -> ByteString
 s1 <:> s2 = concat [toBS s1, toBS ":", toBS s2]
 
+idCounter :: ByteString
 idCounter = redisPrefix <:> "idCounter"
 
+postKey, postCommentsKey :: PostId -> ByteString
 postKey pid = redisPrefix <:> "posts" <:> pid
-
 postCommentsKey pid = postKey pid <:> "comments"
 
+
+getPostParam :: (BS s1, BS s2, BS s3) => s1 -> s2 -> RedisM s3
 getPostParam post p =
   liftM (fromBS . fromJust) (hget post p >>= fromRBulk)
 
@@ -114,7 +120,6 @@ insertPostR user content = do
 
 getPostSingleR :: PostId -> RedisM Post
 getPostSingleR pid = do
-  pid <- getPostParam key "id"
   time <-  getPostParam key "time"
   user <-  getPostParam key "user"
   votes <-  getPostParam key "votes"
@@ -178,12 +183,12 @@ instance Component Posts where
 
 
 addUserPost :: PostId -> Username -> UserPosts -> UserPosts
-addUserPost pid user map =
-  M.insert user (pid : (fromMaybe [] $ M.lookup user map)) map
+addUserPost pid user up =
+  M.insert user (pid : (fromMaybe [] $ M.lookup user up)) up
   
 deleteUserPost :: PostId -> Username -> UserPosts -> UserPosts
-deleteUserPost pid user map =
-  M.insert user (delete pid (map M.! user)) map
+deleteUserPost pid user up =
+  M.insert user (delete pid (up M.! user)) up
 
 insertSubmissionS :: PostId -> Username -> Update Posts ()
 insertSubmissionS pid user =
