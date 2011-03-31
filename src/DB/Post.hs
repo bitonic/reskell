@@ -35,15 +35,15 @@ data Submission = Submission { submissionId       :: ObjectId
                              }
                 deriving (Eq, Ord, Show)
 instance Bson Submission where
-  toBson s = return [ "_id"      =: submissionId s
-                    , "username" =: submissionUserName s
-                    , "time"     =: submissionTime s
-                    , "title"    =: submissionTitle s
-                    , "type"     =: submissionType s
-                    , "content"  =: submissionContent s
-                    , "votes"    =: submissionVotes s
-                    , "comments" =: map commentId (submissionComments s)
-                    ]
+  toBson s = [ "_id"      =: submissionId s
+             , "username" =: submissionUserName s
+             , "time"     =: submissionTime s
+             , "title"    =: submissionTitle s
+             , "type"     =: submissionType s
+             , "content"  =: submissionContent s
+             , "votes"    =: submissionVotes s
+             , "comments" =: map commentId (submissionComments s)
+             ]
   fromBson doc = do
     id' <- lookup "_id" doc
     userName <- lookup "username" doc
@@ -52,7 +52,7 @@ instance Bson Submission where
     type' <- lookup "type" doc
     content <- lookup "content" doc
     votes <- lookup "votes" doc
-    comments <- lookup "comments" doc >>= mapM fromBson
+    comments <- lookup "comments" doc >>= lazyQuery . getPosts
     return Submission { submissionId       = id'
                       , submissionUserName = userName
                       , submissionTime     = time 
@@ -61,8 +61,7 @@ instance Bson Submission where
                       , submissionContent  = content
                       , submissionVotes    = votes
                       , submissionComments = comments
-                      }
-      
+                      }      
 
 
 data Comment = Comment { commentId       :: ObjectId
@@ -74,20 +73,20 @@ data Comment = Comment { commentId       :: ObjectId
                        }
              deriving (Eq, Ord, Show)
 instance Bson Comment where
-  toBson c = return [ "_id"      =: commentId c
-                    , "username" =: commentUserName c
-                    , "time"     =: commentTime c
-                    , "text"     =: commentText c
-                    , "votes"    =: commentVotes c
-                    , "comments" =: map commentId (commentComments c)
-                    ]
+  toBson c = [ "_id"      =: commentId c
+             , "username" =: commentUserName c
+             , "time"     =: commentTime c
+             , "text"     =: commentText c
+             , "votes"    =: commentVotes c
+             , "comments" =: map commentId (commentComments c)
+             ]
   fromBson doc = do
     id' <- lookup "_id" doc
     userName <- lookup "username" doc
     time <- lookup "time" doc
     text <- lookup "text" doc
     votes <- lookup "votes" doc
-    comments <- lookup "comments" doc >>= mapM fromBson
+    comments <- lookup "comments" doc >>= lazyQuery . getPosts
     return Comment { commentId       = id'
                    , commentUserName = userName
                    , commentTime     = time 
@@ -96,7 +95,7 @@ instance Bson Comment where
                    , commentComments = comments
                    }
 
-class Post a where
+class Bson a => Post a where
   postId :: a -> ObjectId
 
 instance Post Submission where
@@ -125,5 +124,12 @@ newSubmission username title type' content = do
 updatePost :: (Bson a, Post a, DbAccess m) => a -> m ()
 updatePost p = updateItem (Select [ "_id" =: postId p ] postCollection) p
 
-getPost :: (Bson a, Post a, Val v, DbAccess m) => v -> m (Maybe a)
+getPost :: (Bson a, Post a, DbAccess m) => ObjectId -> m (Maybe a)
 getPost id' = getItem (select [ "_id" =: id' ] postCollection)
+
+
+getPosts :: (Bson a, DbAccess m) => [ObjectId] -> m [a]
+getPosts ids = liftM concat $ mapM getPosts' ids
+  where
+    getPosts' id' =
+      find (select [ "_id" =: id' ] postCollection) >>= rest >>= mapM fromBson

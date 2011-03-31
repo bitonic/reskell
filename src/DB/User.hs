@@ -2,7 +2,7 @@
 
 module DB.User (
     UserRank, User (..)
-  , newUser, updateUser, checkLogin
+  , hashUserPassword, insertUser, checkLogin
   , newSession, checkSession
   ) where
 
@@ -44,11 +44,11 @@ data User = User { userName :: UString
           deriving (Eq, Ord, Read, Show)
 
 instance Bson User where
-  toBson user = return [ "username" =: userName user 
-                       , "password" =: userPassword user
-                       , "rank"     =: userRank user
-                       , "about"    =: userAbout user
-                       ]
+  toBson user = [ "username" =: userName user 
+                , "password" =: userPassword user
+                , "rank"     =: userRank user
+                , "about"    =: userAbout user
+                ]
   fromBson doc = do
     name <- lookup "username" doc
     password <- lookup "password" doc
@@ -69,13 +69,13 @@ sessionCollection = "session"
 
 -------------------------------------------------------------------------------
 
-newUser :: (DbAccess m, MonadIO m) => User -> m ()
-newUser user = do
-  hashedp <- liftIO $ makePassword (toByteString $ userPassword user) hashStrength
-  updateUser $ user { userPassword = fromByteString_ hashedp }
+hashUserPassword :: User -> IO User
+hashUserPassword user = do
+  hashedp <- makePassword (toByteString $ userPassword user) hashStrength
+  return user { userPassword = fromByteString_ hashedp }
 
-updateUser :: DbAccess m => User -> m ()
-updateUser user = updateItem (Select [ "username" =: userName user ] userCollection)
+insertUser :: DbAccess m => User -> m ()
+insertUser user = updateItem (Select [ "username" =: userName user ] userCollection)
                   user
   
 getUser :: DbAccess m => UString -> m (Maybe User)
@@ -97,7 +97,7 @@ newSession :: (DbAccess m, MonadIO m) => User -> m String
 newSession user = do
   salt <- liftIO genSaltIO
   (Oid x y) <- liftIO genObjectId 
-  let sessionid = (showHex x . (showHex y) $ "") ++ (BS.unpack $ exportSalt salt)
+  let sessionid = (showHex x . (showHex y)) (BS.unpack $ exportSalt salt)
   let session = [ "_id"      =: pack sessionid
                 , "username" =: userName user 
                 ]
