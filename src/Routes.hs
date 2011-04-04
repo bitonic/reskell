@@ -1,16 +1,24 @@
 {-# Language DeriveDataTypeable #-}
 
-module Routes where
+module Routes (
+    PostListing (..)
+  , PostSort (..) 
+  , Route
+  , dispatch
+  ) where
 
 import Control.Monad
 
 import Data.Data               (Data, Typeable)
 import qualified Data.Text as T
 
+import Happstack.Server
+
 import Web.Routes
 import Web.Routes.Happstack
 
 import DB
+import Config
 
 
 
@@ -39,18 +47,33 @@ instance PathInfo Route where
     
   fromPathSegments =
     msum [ do segment "listing"
-              list <- fmap read anySegment
-              psort <- fmap read anySegment
+              list <- anySegment >>= readM
+              psort <- anySegment >>= readM
               return $ R_Listing list psort
          , do segment "post"
-              liftM R_Post $ fmap read anySegment
+              liftM R_Post (anySegment >>= readM)
          , do segment "vote"
-              id' <- fmap read anySegment
-              up <- fmap read anySegment
+              id' <- anySegment >>= readM
+              up <- anySegment >>= readM
               return $ R_Vote id' up
          , segment "submit" >> return R_Submit
          , do segment "comment"
-              liftM R_Comment $ fmap read anySegment
+              liftM R_Comment (anySegment >>= readM)
          , do segment "user"
-              liftM (R_User . T.pack) $ fmap read anySegment
+              liftM (R_User . T.pack) (anySegment >>= readM)
          ]
+
+readM :: (Read a, Monad m) => String -> m a
+readM s | length res > 0 = return $ (fst . head) res
+        | otherwise      = fail "Could not parse url."
+  where
+    res = reads s
+
+siteSpec = setDefault (R_Listing Links New) $
+           Site { handleSite = \f u -> unRouteT (ok $ toResponse $ show u) f
+                , formatPathSegments = \u -> (toPathSegments u, [])
+                , parsePathSegments  = parseSegments fromPathSegments
+                }
+
+dispatch :: Config -> ServerPart Response
+dispatch config = mapServerPartT (unpackConfigT config) $ implSite "/" "" siteSpec

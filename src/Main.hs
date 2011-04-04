@@ -15,7 +15,7 @@ import qualified Happstack.Server as S
 import Happstack.State         (waitForTermination)
 
 import qualified Config as C
-import Pages
+import Routes
 
 
 main :: IO ()
@@ -33,10 +33,10 @@ main = do
                         }
   
   bracket (forkIO $ runServer config) killThread $ \_ -> do
-              logM "Happstack.Server" NOTICE "System running, press 'e <ENTER>' or Ctrl-C to stop server"
-              waitForTermination
+    logM "Happstack.Server" NOTICE "System running, press 'e <ENTER>' or Ctrl-C to stop server"
+    waitForTermination
   where
-    runServer config = S.simpleHTTP' (C.unpackConfigT config) (C.httpConf config) routes
+    runServer config = S.simpleHTTP (C.httpConf config) $ dispatch config
 
               
 data CmdData = CmdData { port       :: Int

@@ -5,7 +5,6 @@ module DB.Common (
     objid2bs
   , bs2objid
   , getItem
-  , runQuery
   ) where
 
 import Control.Monad           (liftM)
@@ -86,9 +85,10 @@ interleavedAction q = do
     unsafeInterleaveIO $ do 
       e <- runAction (use db q) w mos pipe
       return $ either (error . show) id e
--}
+
 
 runQuery :: NetworkIO m => ReaderT Database (Action m) a -> m (Either Failure a)
 runQuery q = do
   pool <- connPool
   access safe Master pool (use database q)
+-}
