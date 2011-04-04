@@ -1,8 +1,16 @@
 {-# Language OverloadedStrings, TemplateHaskell, DeriveDataTypeable #-}
 
 module DB.User (
-    UserRank (..), User (..)
-  , hashUserPassword, newUser, getUser, checkLogin
+    UserRank (..)
+  , User (..)
+  , UserName
+  , Password
+  
+  , hashUserPassword
+  , newUser
+  , getUser
+  , checkLogin
+  
   , newSession, checkSession
   ) where
 
@@ -17,9 +25,8 @@ import Data.UString
 import Data.ByteString         (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import Data.Text               (Text)
-import Data.Text.Encoding      (encodeUtf8, decodeUtf8)
 
-import Database.MongoDB
+import Database.MongoDB hiding (Password)
 
 import Crypto.PasswordStore
 
@@ -38,12 +45,15 @@ instance Val UserRank where
   cast' v = liftM read $ cast' v
 
 
-data User = User { userName :: Text
-                 , userPassword :: Text
+type UserName = Text
+type Password = ByteString
+
+data User = User { userName :: UserName
+                 , userPassword :: Password
                  , userRank :: UserRank
                  , userAbout :: Text
                  }
-          deriving (Eq, Ord, Read, Show)
+          deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 $(deriveBson ''User)
   
@@ -57,25 +67,26 @@ hashStrength = 12
 sessionColl :: Collection
 sessionColl = "session"
 
+
 -------------------------------------------------------------------------------
 
 hashUserPassword :: User -> IO User
 hashUserPassword user = do
-  hashedp <- makePassword (encodeUtf8 $ userPassword user) hashStrength
-  return user { userPassword = decodeUtf8 hashedp }
+  hashedp <- makePassword (userPassword user) hashStrength
+  return user { userPassword = hashedp }
 
 newUser :: DbAccess m => User -> m ()
 newUser user = insert_ userColl $ toBson user
   
-getUser :: DbAccess m => Text -> m (Maybe User)
+getUser :: DbAccess m => UserName -> m (Maybe User)
 getUser username = getItem $ select [ $(getLabel 'userName) =: username ] userColl
 
-checkLogin :: DbAccess m => Text -> ByteString -> m (Maybe User)
+checkLogin :: DbAccess m => UserName -> ByteString -> m (Maybe User)
 checkLogin username password = do
   userM <- getUser username
   return $ do 
     user <- userM
-    if verifyPassword password $ encodeUtf8 $ userPassword user 
+    if verifyPassword password $ userPassword user 
       then return user 
       else Nothing
 

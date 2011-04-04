@@ -1,4 +1,5 @@
 {-# Language OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module DB.Common (
     objid2bs
@@ -32,6 +33,12 @@ import Config
 instance Val Text where
   val     = val . fromByteString_ . encodeUtf8
   cast' v = liftM (decodeUtf8 . toByteString) $ cast' v
+  
+instance Val ByteString where
+  val     = val . Binary
+  cast' b = case cast' b of
+    Just (Binary bs) -> Just bs
+    Nothing          -> Nothing
 
 ------------------------------------------------------------------------------
 -- | Convert 'ObjectId' into 'ByteString'

@@ -1,6 +1,20 @@
 {-# Language OverloadedStrings, DeriveDataTypeable, TemplateHaskell #-}
 
-module DB.Post where
+module DB.Post (
+    SubmissionType (..)
+  , PostId
+  , Submission (..)
+  , Comment (..)
+  , Post (..)
+  , newSubmission
+  , newComment
+  , getSubmission
+  , getComment
+  , getPost
+  , getLinks
+  , getAsks
+  , getComments
+  ) where
 
 import Prelude hiding (lookup)
 
@@ -16,6 +30,7 @@ import Data.Word               (Word32)
 import Database.MongoDB
 
 import DB.Common
+import DB.User
 
 
 
@@ -29,7 +44,7 @@ instance Val SubmissionType where
 type PostId   = Int
 
 data Submission = Submission { submissionId       :: PostId
-                             , submissionUserName :: Text
+                             , submissionUserName :: UserName
                              , submissionTime     :: UTCTime
                              , submissionTitle    :: Text
                              , submissionType     :: SubmissionType
@@ -63,6 +78,7 @@ instance Post Submission where
 
 instance Post Comment where
   postId = commentId
+  
 
 postColl :: Collection
 postColl = "post"
@@ -81,7 +97,7 @@ incPostCounter =
   
 
 newSubmission :: (MonadIO m, DbAccess m)
-                 => Text -> Text -> SubmissionType -> Text -> m PostId
+                 => UserName -> Text -> SubmissionType -> Text -> m PostId
 newSubmission username title type' content = do
   time <- liftIO getCurrentTime
   id' <- incPostCounter
@@ -97,7 +113,7 @@ newSubmission username title type' content = do
   return id'
 
 newComment :: (MonadIO m, DbAccess m, Post a)
-              => Text -> Text -> Submission -> a -> m PostId
+              => UserName -> Text -> Submission -> a -> m PostId
 newComment username text submission parent = do
   time <- liftIO getCurrentTime
   id' <- incPostCounter
@@ -139,7 +155,6 @@ getAsks l s =
                       , skip = s
                       , sort = [ $(getLabel 'submissionTime) =: (-1 :: Int) ]
                       }
-
 
 getComments :: (DbAccess m, Post a) => a -> m [Comment]
 getComments a = getPosts (select [ $(getLabel 'commentParent) =: postId a ] postColl)
