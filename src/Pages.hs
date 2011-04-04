@@ -6,7 +6,7 @@ module Pages (
 
 import Happstack.Server
 
-import Config
+import Context
 
-routes :: ConfigT IO Response
+routes :: ContextM Response
 routes = ok $ toResponse "blah"

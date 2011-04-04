@@ -4,7 +4,7 @@ module Routes (
     PostListing (..)
   , PostSort (..) 
   , Route
-  , dispatch
+  , runRoutes
   ) where
 
 import Control.Monad
@@ -18,8 +18,8 @@ import Web.Routes
 import Web.Routes.Happstack
 
 import DB
-import Config
-
+import Context
+import Pages
 
 
 
@@ -70,10 +70,14 @@ readM s | length res > 0 = return $ (fst . head) res
     res = reads s
 
 siteSpec = setDefault (R_Listing Links New) $
-           Site { handleSite = \f u -> unRouteT (ok $ toResponse $ show u) f
+           Site { handleSite = \f u -> unRouteT (dispatch u) f
                 , formatPathSegments = \u -> (toPathSegments u, [])
                 , parsePathSegments  = parseSegments fromPathSegments
                 }
 
-dispatch :: Config -> ServerPart Response
-dispatch config = mapServerPartT (unpackConfigT config) $ implSite "/" "" siteSpec
+dispatch :: Route -> RouteT Route ContextM Response
+dispatch (R_Post id') = ok $ toResponse ("This is post n " ++ (show id') ++ "!")
+dispatch u            = ok $ toResponse $ show u
+
+runRoutes :: Context -> ServerPart Response
+runRoutes context = mapServerPartT (unpackContext context) $ implSite "/" "" siteSpec

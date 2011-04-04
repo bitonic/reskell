@@ -14,7 +14,7 @@ import qualified Database.MongoDB as M
 import qualified Happstack.Server as S
 import Happstack.State         (waitForTermination)
 
-import qualified Config as C
+import qualified Context as C
 import Routes
 
 
@@ -26,17 +26,18 @@ main = do
   
   pool <- M.newConnPool 1 (M.host $ read $ mongohost args)
   
-  let config = C.Config { C.httpConf = S.nullConf { S.port = port args }
-                        , C.static   = static args
-                        , C.database = M.Database (M.u $ database args)
-                        , C.connPool = pool
-                        }
+  let context = C.Context { C.httpConf = S.nullConf { S.port = port args }
+                          , C.static   = static args
+                          , C.database = M.Database (M.u $ database args)
+                          , C.connPool = pool
+                          , C.user     = Nothing
+                          }
   
-  bracket (forkIO $ runServer config) killThread $ \_ -> do
+  bracket (forkIO $ runServer context) killThread $ \_ -> do
     logM "Happstack.Server" NOTICE "System running, press 'e <ENTER>' or Ctrl-C to stop server"
     waitForTermination
   where
-    runServer config = S.simpleHTTP (C.httpConf config) $ dispatch config
+    runServer context = S.simpleHTTP (C.httpConf context) $ runRoutes context
 
               
 data CmdData = CmdData { port       :: Int

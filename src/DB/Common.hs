@@ -8,9 +8,6 @@ module DB.Common (
   ) where
 
 import Control.Monad           (liftM)
-import Control.Monad.Reader    (ReaderT)
-
-import Network.Abstract        (NetworkIO)
 
 import Data.Bson
 import Data.Bson.Mapping
@@ -26,7 +23,6 @@ import Safe                    (headMay)
 
 import Database.MongoDB
 
-import Config
 
 
 instance Val Text where
