@@ -1,4 +1,4 @@
-{-# Language OverloadedStrings, DeriveDataTypeable #-}
+{-# Language OverloadedStrings, DeriveDataTypeable, TemplateHaskell #-}
 
 module DB.Post where
 
@@ -8,8 +8,10 @@ import Control.Monad           (liftM)
 import Control.Monad.IO.Class
 
 import Data.Data               (Data, Typeable)
-import Data.Maybe              (fromJust)
 import Data.Time.Clock
+import Data.Bson.Mapping
+import Data.Text               (Text)
+import Data.Word               (Word32)
 
 import Database.MongoDB
 
@@ -24,79 +26,37 @@ instance Val SubmissionType where
   val     = val . show
   cast' v = liftM read $ cast' v
 
-data Submission = Submission { submissionId       :: ObjectId
-                             , submissionUserName :: UString
+type PostId   = Int
+
+data Submission = Submission { submissionId       :: PostId
+                             , submissionUserName :: Text
                              , submissionTime     :: UTCTime
-                             , submissionTitle    :: UString
+                             , submissionTitle    :: Text
                              , submissionType     :: SubmissionType
-                             , submissionContent  :: UString
+                             , submissionContent  :: Text
                              , submissionVotes    :: Int
-                             , submissionComments :: [Comment]
                              }
-                deriving (Eq, Ord, Show)
-instance Bson Submission where
-  toBson s = [ "_id"      =: submissionId s
-             , "username" =: submissionUserName s
-             , "time"     =: submissionTime s
-             , "title"    =: submissionTitle s
-             , "type"     =: submissionType s
-             , "content"  =: submissionContent s
-             , "votes"    =: submissionVotes s
-             , "comments" =: map commentId (submissionComments s)
-             ]
-  fromBson doc = do
-    id' <- lookup "_id" doc
-    userName <- lookup "username" doc
-    time <- lookup "time" doc
-    title <- lookup "title" doc
-    type' <- lookup "type" doc
-    content <- lookup "content" doc
-    votes <- lookup "votes" doc
-    comments <- lookup "comments" doc >>= lazyQuery . getPosts
-    return Submission { submissionId       = id'
-                      , submissionUserName = userName
-                      , submissionTime     = time 
-                      , submissionTitle    = title
-                      , submissionType     = type'
-                      , submissionContent  = content
-                      , submissionVotes    = votes
-                      , submissionComments = comments
-                      }      
+                deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+$(deriveBson ''Submission)
 
-data Comment = Comment { commentId       :: ObjectId
-                       , commentUserName :: UString
-                       , commentTime     :: UTCTime
-                       , commentText     :: UString
-                       , commentVotes    :: Int
-                       , commentComments :: [Comment]
+  
+  
+data Comment = Comment { commentId         :: PostId
+                       , commentUserName   :: Text
+                       , commentTime       :: UTCTime
+                       , commentText       :: Text
+                       , commentVotes      :: Int
+                       , commentParent     :: Int
+                       , commentSubmission :: Int
                        }
-             deriving (Eq, Ord, Show)
-instance Bson Comment where
-  toBson c = [ "_id"      =: commentId c
-             , "username" =: commentUserName c
-             , "time"     =: commentTime c
-             , "text"     =: commentText c
-             , "votes"    =: commentVotes c
-             , "comments" =: map commentId (commentComments c)
-             ]
-  fromBson doc = do
-    id' <- lookup "_id" doc
-    userName <- lookup "username" doc
-    time <- lookup "time" doc
-    text <- lookup "text" doc
-    votes <- lookup "votes" doc
-    comments <- lookup "comments" doc >>= lazyQuery . getPosts
-    return Comment { commentId       = id'
-                   , commentUserName = userName
-                   , commentTime     = time 
-                   , commentText     = text
-                   , commentVotes    = votes
-                   , commentComments = comments
-                   }
+             deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-class Bson a => Post a where
-  postId :: a -> ObjectId
+$(deriveBson ''Comment)
+
+
+class (Bson a, Typeable a) => Post a where
+  postId :: a -> PostId
 
 instance Post Submission where
   postId = submissionId
@@ -104,32 +64,82 @@ instance Post Submission where
 instance Post Comment where
   postId = commentId
 
-postCollection :: Collection
-postCollection = "post"
+postColl :: Collection
+postColl = "post"
+
+postCounter :: String
+postCounter = "postCounter"
+
+incPostCounter :: DbAccess m => m PostId
+incPostCounter =
+  runCommand [ "findAndModify" =: postColl
+             , "query"         =: [ "_id" =: postCounter ]
+             , "new"           =: True
+             , "update"        =: [ "$inc" =: [ "counter" =: (1 :: PostId) ] ]
+             , "upsert"        =: True
+             ] >>= lookup "value" >>= lookup "counter" 
+  
 
 newSubmission :: (MonadIO m, DbAccess m)
-                 => UString -> UString -> SubmissionType -> UString -> m ObjectId
+                 => Text -> Text -> SubmissionType -> Text -> m PostId
 newSubmission username title type' content = do
   time <- liftIO getCurrentTime
-  id' <- insert postCollection [ "username" =: username
-                              , "time"     =: time
-                              , "title"    =: title
-                              , "type"     =: type'
-                              , "content"  =: content
-                              , "votes"    =: (0 :: Int)
-                              , "comments" =: ([] :: [ObjectId])
-                              ]
-  return $ fromJust $ cast' id'
+  id' <- incPostCounter
+  let submission = Submission { submissionId       = id'
+                              , submissionUserName = username
+                              , submissionTime     = time
+                              , submissionTitle    = title
+                              , submissionType     = type'
+                              , submissionContent  = content
+                              , submissionVotes    = 0
+                              }
+  insert_ postColl $ toBson submission
+  return id'
 
-updatePost :: (Bson a, Post a, DbAccess m) => a -> m ()
-updatePost p = updateItem (Select [ "_id" =: postId p ] postCollection) p
+newComment :: (MonadIO m, DbAccess m, Post a)
+              => Text -> Text -> Submission -> a -> m PostId
+newComment username text submission parent = do
+  time <- liftIO getCurrentTime
+  id' <- incPostCounter
+  let comment = Comment { commentId         = id'
+                        , commentTime       = time
+                        , commentUserName   = username
+                        , commentText       = text
+                        , commentVotes      = 0
+                        , commentParent     = postId parent
+                        , commentSubmission = submissionId submission
+                        }
+  insert_ postColl $ toBson comment
+  return id'
 
-getPost :: (Bson a, Post a, DbAccess m) => ObjectId -> m (Maybe a)
-getPost id' = getItem (select [ "_id" =: id' ] postCollection)
+
+getSubmission :: DbAccess m => PostId -> m (Maybe Submission)
+getSubmission id' = getItem $ select [$(getLabel 'submissionId) =: id'] postColl
+getComment    :: DbAccess m => PostId -> m (Maybe Submission)
+getComment id'     = getItem $ select [$(getLabel 'commentId)   =: id'] postColl
+
+getPost :: (Post a, DbAccess m) => PostId -> m (Maybe a)
+getPost id' = getItem $ select [ "$or" =: [[$(getLabel 'submissionId) =: id']
+                                          ,[$(getLabel 'commentId)    =: id']]]
+                        postColl
+
+getPosts :: (Post a, DbAccess m) => Query -> m [a]
+getPosts q = find q >>= rest >>= mapM fromBson
+
+getLinks, getAsks :: DbAccess m => Limit -> Word32 -> m [Submission]
+getLinks l s =
+ getPosts (select [$(getLabel 'submissionType) =: Link] postColl)
+                      { limit = l
+                      , skip = s 
+                      , sort = [ $(getLabel 'submissionTime) =: (-1 :: Int) ]
+                      }  
+getAsks l s =
+  getPosts (select [$(getLabel 'submissionType) =: Ask] postColl)
+                      { limit = l
+                      , skip = s
+                      , sort = [ $(getLabel 'submissionTime) =: (-1 :: Int) ]
+                      }
 
 
-getPosts :: (Bson a, DbAccess m) => [ObjectId] -> m [a]
-getPosts ids = liftM concat $ mapM getPosts' ids
-  where
-    getPosts' id' =
-      find (select [ "_id" =: id' ] postCollection) >>= rest >>= mapM fromBson
+getComments :: (DbAccess m, Post a) => a -> m [Comment]
+getComments a = getPosts (select [ $(getLabel 'commentParent) =: postId a ] postColl)

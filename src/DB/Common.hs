@@ -1,28 +1,24 @@
 {-# Language OverloadedStrings #-}
 
 module DB.Common (
-    Bson (..)
-  , objid2bs
+    objid2bs
   , bs2objid
   , getItem
-  , updateItem
-  , lazyQuery
   , runQuery
   ) where
 
-import System.IO.Unsafe        (unsafeInterleaveIO)
-
 import Control.Monad           (liftM)
-import Control.Monad.IO.Class  (MonadIO, liftIO)
 import Control.Monad.Reader    (ReaderT)
-import Control.Monad.Context
-import Control.Monad.Throw     (throw)
 
 import Network.Abstract        (NetworkIO)
 
 import Data.Bson
+import Data.Bson.Mapping
 import Data.ByteString         (ByteString)
 import qualified Data.ByteString.Char8 as BS
+import Data.CompactString.UTF8 (fromByteString_, toByteString)
+import Data.Text               (Text)
+import Data.Text.Encoding      (encodeUtf8, decodeUtf8)
 
 import Numeric                 (showHex, readHex)
 
@@ -30,16 +26,12 @@ import Safe                    (headMay)
 
 import Database.MongoDB
 
-
-
 import Config
 
 
-
-class Bson a where
-  toBson     :: a -> Document
-  fromBson   :: DbAccess m => Document -> m a
-
+instance Val Text where
+  val     = val . fromByteString_ . encodeUtf8
+  cast' v = liftM (decodeUtf8 . toByteString) $ cast' v
 
 ------------------------------------------------------------------------------
 -- | Convert 'ObjectId' into 'ByteString'
@@ -64,12 +56,11 @@ getItem q = do
   docM <- findOne q
   case docM of
     Nothing  -> return Nothing
-    Just doc -> liftM Just $ fromBson doc 
+    Just doc -> return $ case fromBson doc of
+      Nothing -> Nothing
+      Just i  -> Just i
 
-updateItem :: (Bson i, DbAccess m) => Selection -> i -> m ()
-updateItem s i = repsert s $ toBson i
-
-
+{-
 wrapIO :: Access m
           => (WriteMode -> MasterOrSlaveOk -> Pipe -> IO a)
           -> m a
@@ -81,13 +72,14 @@ wrapIO act = do
   liftIO $ act writeMod mos pipe
 
 -- | This function is dangerous.
-lazyQuery :: DbAccess m => ReaderT Database (Action IO) a -> m a
-lazyQuery q = do
+interleavedAction :: DbAccess m => ReaderT Database (Action IO) a -> m a
+interleavedAction q = do
   db <- context
   wrapIO $ \w mos pipe ->
     unsafeInterleaveIO $ do 
       e <- runAction (use db q) w mos pipe
       return $ either (error . show) id e
+-}
 
 runQuery :: NetworkIO m => ReaderT Database (Action m) a -> m (Either Failure a)
 runQuery q = do

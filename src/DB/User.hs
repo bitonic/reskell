@@ -1,8 +1,8 @@
-{-# Language OverloadedStrings, DeriveDataTypeable #-}
+{-# Language OverloadedStrings, TemplateHaskell, DeriveDataTypeable #-}
 
 module DB.User (
-    UserRank, User (..)
-  , hashUserPassword, insertUser, checkLogin
+    UserRank (..), User (..)
+  , hashUserPassword, newUser, getUser, checkLogin
   , newSession, checkSession
   ) where
 
@@ -12,9 +12,12 @@ import Control.Monad           (MonadPlus, liftM, mplus)
 import Control.Monad.IO.Class
 
 import Data.Data               (Data, Typeable)
+import Data.Bson.Mapping
 import Data.UString
 import Data.ByteString         (ByteString)
 import qualified Data.ByteString.Char8 as BS
+import Data.Text               (Text)
+import Data.Text.Encoding      (encodeUtf8, decodeUtf8)
 
 import Database.MongoDB
 
@@ -35,58 +38,44 @@ instance Val UserRank where
   cast' v = liftM read $ cast' v
 
 
-
-data User = User { userName :: UString
-                 , userPassword :: UString
+data User = User { userName :: Text
+                 , userPassword :: Text
                  , userRank :: UserRank
-                 , userAbout :: UString
+                 , userAbout :: Text
                  }
           deriving (Eq, Ord, Read, Show)
 
-instance Bson User where
-  toBson user = [ "username" =: userName user 
-                , "password" =: userPassword user
-                , "rank"     =: userRank user
-                , "about"    =: userAbout user
-                ]
-  fromBson doc = do
-    name <- lookup "username" doc
-    password <- lookup "password" doc
-    rank <- lookup "rank" doc
-    about <- lookup "about" doc
-    return $ User name password rank about
+$(deriveBson ''User)
   
-  
+
+userColl :: Collection
+userColl = "user"
+
 hashStrength :: Int
 hashStrength = 12
 
-
-userCollection :: Collection
-userCollection = "user"
-
-sessionCollection :: Collection
-sessionCollection = "session"
+sessionColl :: Collection
+sessionColl = "session"
 
 -------------------------------------------------------------------------------
 
 hashUserPassword :: User -> IO User
 hashUserPassword user = do
-  hashedp <- makePassword (toByteString $ userPassword user) hashStrength
-  return user { userPassword = fromByteString_ hashedp }
+  hashedp <- makePassword (encodeUtf8 $ userPassword user) hashStrength
+  return user { userPassword = decodeUtf8 hashedp }
 
-insertUser :: DbAccess m => User -> m ()
-insertUser user = updateItem (Select [ "username" =: userName user ] userCollection)
-                  user
+newUser :: DbAccess m => User -> m ()
+newUser user = insert_ userColl $ toBson user
   
-getUser :: DbAccess m => UString -> m (Maybe User)
-getUser username = getItem (select [ "username" =: username ] userCollection)
+getUser :: DbAccess m => Text -> m (Maybe User)
+getUser username = getItem $ select [ $(getLabel 'userName) =: username ] userColl
 
-checkLogin :: DbAccess m => UString -> ByteString -> m (Maybe User)
+checkLogin :: DbAccess m => Text -> ByteString -> m (Maybe User)
 checkLogin username password = do
   userM <- getUser username
   return $ do 
     user <- userM
-    if verifyPassword password $ toByteString $ userPassword user 
+    if verifyPassword password $ encodeUtf8 $ userPassword user 
       then return user 
       else Nothing
 
@@ -96,12 +85,12 @@ checkLogin username password = do
 newSession :: (DbAccess m, MonadIO m) => User -> m String
 newSession user = do
   salt <- liftIO genSaltIO
-  (Oid x y) <- liftIO genObjectId 
+  Oid x y <- liftIO genObjectId 
   let sessionid = (showHex x . (showHex y)) (BS.unpack $ exportSalt salt)
   let session = [ "_id"      =: pack sessionid
                 , "username" =: userName user 
                 ]
-  insert_ sessionCollection session
+  insert_ sessionColl session
   return sessionid
 
 
@@ -111,7 +100,7 @@ checkSession sessionid = do
   case sessionidM of
     Nothing -> return Nothing
     Just sessionid' -> do
-      sessionM <- findOne $ select [ "_id" =: sessionid' ] sessionCollection
+      sessionM <- findOne $ select [ "_id" =: sessionid' ] sessionColl
       case sessionM of
         Nothing -> return Nothing
         Just session -> lookup "username" session >>= getUser
