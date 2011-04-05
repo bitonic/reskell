@@ -14,7 +14,7 @@ import qualified Database.MongoDB as M
 import qualified Happstack.Server as S
 import Happstack.State         (waitForTermination)
 
-import qualified Context as C
+import qualified Types as C
 import Routes
 
 
@@ -22,13 +22,13 @@ main :: IO ()
 main = do
   progName <- getProgName
   
-  args <- cmdArgs cmdData
+  args' <- cmdArgs cmdData
   
-  pool <- M.newConnPool 1 (M.host $ read $ mongohost args)
+  pool <- M.newConnPool 1 (M.host $ read $ mongohost args')
   
-  let context = C.Context { C.httpConf = S.nullConf { S.port = port args }
-                          , C.static   = static args
-                          , C.database = M.Database (M.u $ database args)
+  let context = C.Context { C.httpConf = S.nullConf { S.port = port args' }
+                          , C.static   = static args'
+                          , C.database = M.Database (M.u $ database args')
                           , C.connPool = pool
                           , C.user     = Nothing
                           }
@@ -48,6 +48,7 @@ data CmdData = CmdData { port       :: Int
                        }
              deriving (Read, Show, Data, Typeable)
 
+cmdData :: CmdData
 cmdData = CmdData { port = 8000 &= name "p"  &= typ "NUM" &= help "Port to bind http server (8000)"
                   , database = "reskell" &= help "The MongoDB database to be used (reskell)"
                   , mongohost = "127.0.0.1" &= help "MongoDB host (127.0.0.1)"

@@ -1,11 +1,8 @@
-{-# Language OverloadedStrings, DeriveDataTypeable, TemplateHaskell #-}
+{-# Language OverloadedStrings, DeriveDataTypeable, TemplateHaskell,
+    ExistentialQuantification #-}
 
 module DB.Post (
-    SubmissionType (..)
-  , PostId
-  , Submission (..)
-  , Comment (..)
-  , Post (..)
+    PostE (..)
   , newSubmission
   , newComment
   , getSubmission
@@ -21,7 +18,6 @@ import Prelude hiding (lookup)
 import Control.Monad           (liftM)
 import Control.Monad.IO.Class
 
-import Data.Data               (Data, Typeable)
 import Data.Time.Clock
 import Data.Bson.Mapping
 import Data.Text               (Text)
@@ -30,55 +26,10 @@ import Data.Word               (Word32)
 import Database.MongoDB
 
 import DB.Common
-import DB.User
+import Types
 
 
-
-data SubmissionType = Ask | Link
-                    deriving (Eq, Ord, Enum, Read, Show, Data, Typeable)
-
-instance Val SubmissionType where
-  val     = val . show
-  cast' v = liftM read $ cast' v
-
-type PostId   = Int
-
-data Submission = Submission { submissionId       :: PostId
-                             , submissionUserName :: UserName
-                             , submissionTime     :: UTCTime
-                             , submissionTitle    :: Text
-                             , submissionType     :: SubmissionType
-                             , submissionContent  :: Text
-                             , submissionVotes    :: Int
-                             }
-                deriving (Eq, Ord, Show, Read, Data, Typeable)
-
-$(deriveBson ''Submission)
-
-  
-  
-data Comment = Comment { commentId         :: PostId
-                       , commentUserName   :: Text
-                       , commentTime       :: UTCTime
-                       , commentText       :: Text
-                       , commentVotes      :: Int
-                       , commentParent     :: Int
-                       , commentSubmission :: Int
-                       }
-             deriving (Eq, Ord, Show, Read, Data, Typeable)
-
-$(deriveBson ''Comment)
-
-
-class (Bson a, Typeable a) => Post a where
-  postId :: a -> PostId
-
-instance Post Submission where
-  postId = submissionId
-
-instance Post Comment where
-  postId = commentId
-  
+data PostE = forall p. Post p => PostE p
 
 postColl :: Collection
 postColl = "post"
@@ -131,15 +82,21 @@ newComment username text submission parent = do
 
 getSubmission :: DbAccess m => PostId -> m (Maybe Submission)
 getSubmission id' = getItem $ select [$(getLabel 'submissionId) =: id'] postColl
-getComment    :: DbAccess m => PostId -> m (Maybe Submission)
-getComment id'     = getItem $ select [$(getLabel 'commentId)   =: id'] postColl
+getComment    :: DbAccess m => PostId -> m (Maybe Comment)
+getComment    id' = getItem $ select [$(getLabel 'commentId)    =: id'] postColl
 
-getPost :: (Post a, DbAccess m) => PostId -> m (Maybe a)
-getPost id' = getItem $ select [ "$or" =: [[$(getLabel 'submissionId) =: id']
-                                          ,[$(getLabel 'commentId)    =: id']]]
-                        postColl
+getPost :: DbAccess m => PostId -> m (Maybe PostE)
+getPost id' = do
+  p <- findOne $ select ["$or" =: [[$(getLabel 'submissionId) =: id']
+                                 ,[$(getLabel 'commentId)    =: id']]] postColl
+  return $ case p of
+    Nothing  -> Nothing
+    Just doc -> case (fromBson doc :: Maybe Submission) of
+      Just s  -> Just $ PostE s
+      Nothing -> liftM PostE (fromBson doc :: Maybe Comment)
 
-getPosts :: (Post a, DbAccess m) => Query -> m [a]
+
+getPosts :: (Bson a, DbAccess m) => Query -> m [a]
 getPosts q = find q >>= rest >>= mapM fromBson
 
 getLinks, getAsks :: DbAccess m => Limit -> Word32 -> m [Submission]

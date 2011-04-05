@@ -1,66 +1,33 @@
 {-# Language OverloadedStrings #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module DB.Common (
-    objid2bs
-  , bs2objid
-  , getItem
+    getItem
+  , query  
   ) where
 
 import Control.Monad           (liftM)
+import Control.Monad.Trans     (lift)
+import Control.Monad.Reader    (ask)
 
-import Data.Bson
 import Data.Bson.Mapping
-import Data.ByteString         (ByteString)
-import qualified Data.ByteString.Char8 as BS
-import Data.CompactString.UTF8 (fromByteString_, toByteString)
-import Data.Text               (Text)
-import Data.Text.Encoding      (encodeUtf8, decodeUtf8)
 
-import Numeric                 (showHex, readHex)
-
-import Safe                    (headMay)
-
-import Database.MongoDB
+import Database.MongoDB        (DbAccess, Query, findOne, access, safe,
+                                MasterOrSlaveOk (..), use)
 
 
-
-instance Val Text where
-  val     = val . fromByteString_ . encodeUtf8
-  cast' v = liftM (decodeUtf8 . toByteString) $ cast' v
-  
-instance Val ByteString where
-  val     = val . Binary
-  cast' b = case cast' b of
-    Just (Binary bs) -> Just bs
-    Nothing          -> Nothing
-
-------------------------------------------------------------------------------
--- | Convert 'ObjectId' into 'ByteString'
-objid2bs :: ObjectId -> ByteString
-objid2bs (Oid a b) = BS.pack . showHex a . showChar '-' . showHex b $ ""
-
-
-------------------------------------------------------------------------------
--- | Convert 'ByteString' into 'ObjectId'
-bs2objid :: ByteString -> Maybe ObjectId
-bs2objid bs = do
-  case BS.split '-' bs of
-    (a':b':_) -> do
-      a <- fmap fst . headMay . readHex . BS.unpack $ a'
-      b <- fmap fst . headMay . readHex . BS.unpack $ b'
-      return $ Oid a b
-    _ -> Nothing
+import Types
 
 
 getItem :: (Bson i, DbAccess m) => Query -> m (Maybe i)
-getItem q = do
-  docM <- findOne q
-  case docM of
-    Nothing  -> return Nothing
-    Just doc -> return $ case fromBson doc of
-      Nothing -> Nothing
-      Just i  -> Just i
+getItem q = liftM (>>= fromBson) $ findOne q
+
+
+query q = do
+  cx <- lift ask
+  let pool = connPool cx
+      db   = database cx
+  access safe Master pool (use db q)
+  
 
 {-
 wrapIO :: Access m
