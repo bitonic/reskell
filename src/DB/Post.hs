@@ -2,8 +2,7 @@
     ExistentialQuantification #-}
 
 module DB.Post (
-    PostE (..)
-  , newSubmission
+    newSubmission
   , newComment
   , getSubmission
   , getComment
@@ -16,7 +15,7 @@ module DB.Post (
 import Prelude hiding (lookup)
 
 import Control.Monad           (liftM)
-import Control.Monad.IO.Class
+import Control.Monad.Trans     (liftIO, MonadIO)
 
 import Data.Time.Clock
 import Data.Bson.Mapping
@@ -29,20 +28,19 @@ import DB.Common
 import Types
 
 
-data PostE = forall p. Post p => PostE p
-
 postColl :: Collection
 postColl = "post"
 
 postCounter :: String
 postCounter = "postCounter"
 
+
 incPostCounter :: DbAccess m => m PostId
 incPostCounter =
   runCommand [ "findAndModify" =: postColl
-             , "query"         =: [ "_id" =: postCounter ]
+             , "query"         =: ["_id" =: postCounter]
              , "new"           =: True
-             , "update"        =: [ "$inc" =: [ "counter" =: (1 :: PostId) ] ]
+             , "update"        =: ["$inc" =: ["counter" =: (1 :: PostId)]]
              , "upsert"        =: True
              ] >>= lookup "value" >>= lookup "counter" 
   
@@ -85,23 +83,21 @@ getSubmission id' = getItem $ select [$(getLabel 'submissionId) =: id'] postColl
 getComment    :: DbAccess m => PostId -> m (Maybe Comment)
 getComment    id' = getItem $ select [$(getLabel 'commentId)    =: id'] postColl
 
-getPost :: DbAccess m => PostId -> m (Maybe PostE)
-getPost id' = do
-  p <- findOne $ select ["$or" =: [[$(getLabel 'submissionId) =: id']
-                                 ,[$(getLabel 'commentId)    =: id']]] postColl
-  return $ case p of
-    Nothing  -> Nothing
-    Just doc -> case (fromBson doc :: Maybe Submission) of
-      Just s  -> Just $ PostE s
-      Nothing -> liftM PostE (fromBson doc :: Maybe Comment)
 
+getPost :: DbAccess m => PostId -> m (Maybe (Either Submission Comment))
+getPost id' = do
+  pM <- findOne $ select ["$or" =: [[$(getLabel 'submissionId) =: id']
+                                  ,[$(getLabel 'commentId)    =: id']]] postColl
+  return $ pM >>= \p -> case fromBson p :: Maybe Submission of
+    Just s  -> Just $ Left s
+    Nothing -> liftM Right (fromBson p :: Maybe Comment)
 
 getPosts :: (Bson a, DbAccess m) => Query -> m [a]
 getPosts q = find q >>= rest >>= mapM fromBson
 
 getLinks, getAsks :: DbAccess m => Limit -> Word32 -> m [Submission]
 getLinks l s =
- getPosts (select [$(getLabel 'submissionType) =: Link] postColl)
+  getPosts (select [$(getLabel 'submissionType) =: Link] postColl)
                       { limit = l
                       , skip = s 
                       , sort = [ $(getLabel 'submissionTime) =: (-1 :: Int) ]

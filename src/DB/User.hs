@@ -11,7 +11,7 @@ module DB.User (
 import Prelude hiding (lookup)
 
 import Control.Monad           (mplus)
-import Control.Monad.IO.Class
+import Control.Monad.Trans     (liftIO, MonadIO)
 
 import Data.Bson.Mapping
 import Data.UString

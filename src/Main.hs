@@ -8,6 +8,9 @@ import System.Log.Logger       (Priority (..), logM)
 
 import Control.Concurrent      (forkIO, killThread)
 import Control.Exception       (bracket)
+import Control.Monad.Trans     (liftIO)
+
+import Data.Time.Clock         (getCurrentTime)
 
 import qualified Database.MongoDB as M
 
@@ -24,20 +27,26 @@ main = do
   
   args' <- cmdArgs cmdData
   
-  pool <- M.newConnPool 1 (M.host $ read $ mongohost args')
+  pool <- M.newConnPool 1 (M.host $ mongohost args')
   
-  let context = C.Context { C.httpConf = S.nullConf { S.port = port args' }
-                          , C.static   = static args'
-                          , C.database = M.Database (M.u $ database args')
-                          , C.connPool = pool
-                          , C.user     = Nothing
+  time <- getCurrentTime
+  
+  let context = C.Context { C.httpConf    = S.nullConf { S.port = port args' }
+                          , C.static      = static args'
+                          , C.database    = M.Database (M.u $ database args')
+                          , C.connPool    = pool
+                          , C.sessionUser = Nothing
+                          , C.currTime    = time
                           }
   
   bracket (forkIO $ runServer context) killThread $ \_ -> do
     logM "Happstack.Server" NOTICE "System running, press 'e <ENTER>' or Ctrl-C to stop server"
     waitForTermination
   where
-    runServer context = S.simpleHTTP (C.httpConf context) $ runRoutes context
+    runServer context = S.simpleHTTP (C.httpConf context) $ do
+    time <- liftIO $ getCurrentTime
+    runRoutes $ context { C.currTime = time }
+      
 
               
 data CmdData = CmdData { port       :: Int
@@ -57,8 +66,3 @@ cmdData = CmdData { port = 8000 &= name "p"  &= typ "NUM" &= help "Port to bind 
                   } &=
           help "Haskell hybrid between reddit ans hacker news." &=
           summary "reskell v0.0, (C) Francesco Mazzoli 2010"        
-
-{-
-defaultConnPool :: NetworkIO m => m (ConnPool Host)
-defaultConnPool = newConnPool 1 (host "127.0.0.1")
--}

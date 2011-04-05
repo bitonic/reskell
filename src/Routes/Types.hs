@@ -32,6 +32,7 @@ data Route = R_Listing PostListing PostSort
            | R_Comment PostId
            | R_User UserName
            | R_Login Route
+           | R_404
            deriving (Read, Show, Eq, Ord, Typeable, Data)
 
 home :: Route
@@ -45,6 +46,7 @@ instance PathInfo Route where
   toPathSegments (R_Comment id')        = ["comment", show id']
   toPathSegments (R_User username)      = ["user", T.unpack username]
   toPathSegments (R_Login route)        = "login" : toPathSegments route
+  toPathSegments  R_404                 = error "toPathSegments: Can't link to 404"
     
   fromPathSegments =
     msum [ do segment "listing"
@@ -65,10 +67,5 @@ instance PathInfo Route where
          , do segment "login"
               route <- option home fromPathSegments
               return $ R_Login route
+         , return R_404
          ]
-  
-readM :: (Read a, Monad m) => String -> m a
-readM s | length res > 0 = return $ (fst . head) res
-        | otherwise      = fail "Could not parse."
-  where
-    res = reads s

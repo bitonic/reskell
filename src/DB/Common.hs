@@ -26,8 +26,8 @@ query q = do
   cx <- lift ask
   let pool = connPool cx
       db   = database cx
-  access safe Master pool (use db q)
-  
+  r <- access safe Master pool (use db q)
+  either (error . show) return r
 
 {-
 wrapIO :: Access m
