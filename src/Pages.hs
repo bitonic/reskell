@@ -36,9 +36,6 @@ import Data.Maybe (fromJust)
 tt :: String -> Text
 tt = T.pack
 
--- serverError :: RouteT Route ContextM String
--- serverError = lift $ lift $ internalServerError "500 server error."
-
 getContext = lift ask
 askContext = (`liftM` getContext)
 
@@ -46,8 +43,7 @@ askContext = (`liftM` getContext)
 
 dispatch :: Route -> RouteT Route ContextM Response
 dispatch R_404          = e404
-dispatch r@(R_Post id') =
-  query (getPost id') >>= maybe e404 (\p -> render (postPage p >>= layout r))
+dispatch r@(R_Post id') = query (getPost id') >>= maybe e404 (postPage r)
 dispatch _ = render (uxg $ <h2> not yet implemented </h2>)
 
 
@@ -56,14 +52,17 @@ render = (=<<) (ok . toResponse)
 
 e404 :: RouteT Route ContextM Response
 e404 = do
-  c <- uxg $ <h2> The page you're looking for does not exist. </h2>
-  notFound . toResponse =<< layout R_404 (tt "404 - Not Found"
-                                         ,tt "404 - Not Found"
-                                         ,c)
+  c <- uxg $ <h2> 404 - The page you're looking for does not exist. </h2>
+  notFound . toResponse =<< layout R_404 (tt "404 - Not Found", Nothing, c)
+
+e500 :: RouteT Route ContextM Response
+e500 = do
+  c <- uxg $ <h2> 500 - Internal server error. </h2>
+  internalServerError . toResponse =<< layout R_404 (tt "500 - Internal Server Error", Nothing, c)
 
 uxg = unXMLGenT
 
-type Page = (Text, Text, XML)
+type Page = (Text, Maybe Text, XML)
 
 layout :: Route -> Page -> RouteT Route ContextM XML
 layout r (title, heading, content) = do
@@ -83,7 +82,11 @@ layout r (title, heading, content) = do
         </div>
         
         <div id="content">
-          <h2> <% heading %> </h2>
+          <%
+            case heading of 
+              Nothing -> []
+              Just h  -> [<h2> h </h2>]
+          %>  
           <% content %>
         </div>
         
@@ -111,7 +114,7 @@ showTimeDiff t1 t2 | diff < min   = "just now"
     month = day * 30
     year = day * 365
     
-    a /// b = truncate $ a / b
+    (///) = (truncate .) . (/)
     
     diff = diffUTCTime t1 t2
     
@@ -147,13 +150,32 @@ submissionDetails s = do
     comments 1 = "1 comment"
     comments n = show n ++ " comment"
 
-commentDetails top c = do
+commentDetails c sM = do
   posted <- whenPosted c
-  if top
-    then do
-      sM <- query $ getSubmission (commentSubmission c)
---       s <- maybe serverError return sM
-      let s = fromJust sM
+  linkURL <- showURL $ R_Post (commentId c)
+  uxg $
+    <div class="commentDetails">
+      <% posted %> |
+      <a href=linkURL>link</a> |
+      <%
+        case sM of
+          Nothing -> []
+          Just s  -> [do
+            parentURL <- showURL $ R_Post (commentParent c)
+            submissionURL <- showURL $ R_Post (submissionId s)
+            <%>
+              <a href=parentURL>parent</a> |
+              on: <a href=submissionURL><% submissionTitle s %></a>
+              </%>]
+      %>
+    </div>
+
+            
+{-            
+  maybe (noTop posted) (top posted) sM
+  where
+    
+    top posted s = do
       linkURL <- showURL $ R_Post (commentId c)
       parentURL <- showURL $ R_Post (commentParent c)
       submissionURL <- showURL $ R_Post (submissionId s)
@@ -164,19 +186,24 @@ commentDetails top c = do
           <a href=parentURL>parent</a> |
           on: <a href=submissionURL><% submissionTitle s %></a>
         </div>
-    else do
+
+    noTop posted = do
       linkURL <- showURL $ R_Post (commentId c)
       uxg $
         <div class="commentDetails">
           <% posted %> |
-          <a href="<% linkURL %>"> link </a> |
+          <a href=linkURL> link </a> |
         </div>
+-}
 
-
-postPage :: Either Submission Comment -> RouteT Route ContextM Page
-postPage (Left p) = do
+postPage r (Left p) = render $ layout r =<< do
   details <- submissionDetails p
-  return (tt "blah", tt "heading for teh post!", details)
-postPage (Right p) = do
-  details <- commentDetails True p
-  return (tt "blah", tt "heading for teh post!", details)
+  let title = submissionTitle p
+  return (title, Just title, details)
+postPage r (Right p) = do
+  sM <- query $ getSubmission (commentSubmission p)
+  case sM of
+    Nothing -> e500
+    Just s  -> render $ layout r =<< do
+      details <- commentDetails p (Just s)
+      return (tt "blah", Nothing, details)
