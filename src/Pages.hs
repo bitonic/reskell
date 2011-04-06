@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts, TypeFamilies #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
 
 module Pages ( 
@@ -13,15 +14,17 @@ import Data.Time.Clock
 import Data.Text               (Text)
 import qualified Data.Text as T
 
-import HSP
+import HSP                     (XMLGenT (..), EmbedAsChild (..), EmbedAsAttr (..),
+                                Attr (..), XML, unXMLGenT, genElement, XMLGenerator)
 import HSP.ServerPartT         ()
+import qualified HSX.XMLGenerator as HSX
 
 import Happstack.Server
 import Happstack.Server.HSP.HTML ()
 
 import Web.Routes
-import Web.Routes.XMLGenT      ()
-import Web.Routes.Happstack    ()
+import Web.Routes.XMLGenT
+import Web.Routes.Happstack
 
 import Types
 import Routes.Types
@@ -45,23 +48,30 @@ render = (=<<) (ok . toResponse)
 e404 :: RouteT Route ContextM Response
 e404 = do
   let c = <h2> 404 - The page you're looking for does not exist. </h2>
-  notFound . toResponse =<< layout R_404 (tt "404 - Not Found", Nothing, c)
+  notFound . toResponse =<< template R_404 (tt "404 - Not Found", Nothing, c)
 
 e500 :: RouteT Route ContextM Response
 e500 = do
   let c = <h2> 500 - Internal server error. </h2>
-  internalServerError . toResponse =<< layout R_404 (tt "500 - Internal Server Error", Nothing, c)
+  internalServerError . toResponse =<< template R_404 (tt "500 - Internal Server Error", Nothing, c)
 
 
 uxg :: XMLGenT m a -> m a
 uxg = unXMLGenT
 
 
-type Page = (Text, Maybe Text, XMLGenT (RouteT Route ContextM) XML)
+type MonadPage = RouteT Route ContextM
+type MonadTemplate = XMLGenT MonadPage (HSX.XML MonadPage)
 
-layout :: Route -> Page -> RouteT Route ContextM XML
-layout r (title, heading, content) = do
-  content' <- uxg content
+template ::
+  ( XMLGenerator m
+  , EmbedAsChild m content
+  , EmbedAsChild m Text
+  )
+  => Route
+  -> (Text, Maybe Text, content)
+  -> m (HSX.XML m)
+template r (title, heading, content) =
   uxg $
     <html>
       
@@ -77,10 +87,9 @@ layout r (title, heading, content) = do
         </div>
         
         <div id="content">
-          <%
-            case heading of 
-              Nothing -> []
-              Just h  -> [<h2> <% h %> </h2>]
+          <% case heading of 
+               Nothing -> []
+               Just h  -> [<h2> <% h %> </h2>]
           %>  
           <% content %>
         </div>
@@ -134,7 +143,7 @@ renderComments p = do
 -- renderComment :: Comment -> RouteT Route ContextM
 -- renderComment c = do
 
-submissionDetails :: Submission -> XMLGenT (RouteT Route ContextM) XML
+submissionDetails :: Submission -> MonadTemplate
 submissionDetails s = do
   posted <- whenPosted s
   url <- showURL $ R_Post (submissionId s)
@@ -147,7 +156,7 @@ submissionDetails s = do
     comments 1 = "1 comment"
     comments n = show n ++ " comment"
 
-commentDetails :: Comment -> Maybe Submission -> XMLGenT (RouteT Route ContextM) XML
+commentDetails :: Comment -> Maybe Submission -> MonadTemplate
 commentDetails c sM = do
   posted <- whenPosted c
   linkURL <- showURL $ R_Post (commentId c)
@@ -174,12 +183,12 @@ truncateText :: Text -> Int -> Text
 truncateText t n | T.length t < n = t 
                  | otherwise      = T.concat [T.take n t, tt "..."]
 
-postPage :: Route -> Either Submission Comment -> RouteT Route ContextM Response
-postPage r (Left p) = render $ layout r (title, Just title, submissionDetails p)
+postPage :: Route -> Either Submission Comment -> MonadPage Response
+postPage r (Left p) = render $ template r (title, Just title, submissionDetails p)
   where title = submissionTitle p
 postPage r (Right p) = do
   sM <- query $ getSubmission (commentSubmission p)
   case sM of
     Nothing -> e500
-    Just s  -> render $ layout r $
+    Just s  -> render $ template r $
                (truncateText (commentText p) 200, Nothing, commentDetails p (Just s))
