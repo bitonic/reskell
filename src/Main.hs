@@ -27,6 +27,8 @@ main = do
   
   args' <- cmdArgs cmdData
   
+  welcomeMsg args'
+  
   pool <- M.newConnPool 1 (M.host $ mongohost args')
   
   time <- getCurrentTime
@@ -66,3 +68,12 @@ cmdData = CmdData { port = 8000 &= name "p"  &= typ "NUM" &= help "Port to bind 
                   } &=
           help "Haskell hybrid between reddit ans hacker news." &=
           summary "reskell v0.0, (C) Francesco Mazzoli 2010"        
+
+welcomeMsg :: CmdData -> IO ()
+welcomeMsg args' = do
+  putStrLn "reskell starting..."
+  putStrLn $ "Port: " ++ (show $ port args')
+  putStrLn $ "Database: " ++ (database args') ++
+    ", mongoDB host: " ++ (mongohost args') ++
+    ", pool size: " ++ (show $ poolsize args')
+  putStrLn $ "static files dir: " ++ (static args')
