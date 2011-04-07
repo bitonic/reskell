@@ -11,7 +11,6 @@ import Control.Monad
 
 import Data.Data               (Data, Typeable)
 import qualified Data.Text as T
-import Data.Maybe              (fromMaybe)
 
 import Text.ParserCombinators.Parsec (option)
 

@@ -106,6 +106,15 @@ hashUserPassword user = do
 
 -------------------------------------------------------------------------------
 
+type PostId = Int
+
+class (Bson a, Typeable a) => Post a where
+  postId       :: a -> PostId
+  postTime     :: a -> UTCTime
+  postUserName :: a -> UserName
+  postVotes    :: a -> Int
+  
+
 data SubmissionType = Ask | Link
                     deriving (Eq, Ord, Enum, Read, Show, Data, Typeable)
 
@@ -113,10 +122,6 @@ instance Val SubmissionType where
   val     = val . show
   cast' v = cast' v >>= readM
   
-
-type PostId = Int
-
-data SubmissionContent = AskC Text Text | LinkC Text
 
 data Submission = Submission { submissionId       :: PostId
                              , submissionUserName :: UserName
@@ -144,13 +149,6 @@ data Comment = Comment { commentId         :: PostId
 
 $(deriveBson ''Comment)
 
-class (Bson a, Typeable a) => Post a where
-  postId       :: a -> PostId
-  postTime     :: a -> UTCTime
-  postUserName :: a -> UserName
-  postVotes    :: a -> Int
-  
-
 instance Post Submission where
   postId       = submissionId
   postTime     = submissionTime
@@ -162,6 +160,41 @@ instance Post Comment where
   postTime     = commentTime
   postUserName = commentUserName
   postVotes    = commentVotes
+
+
+{-
+data SubmissionC = Ask Text Text
+                 | Link Text
+                 deriving (Eq, Ord, Read, Show, Data, Typeable)
+
+submissionTypeLabel :: String
+submissionTypeLabel = "type"
+
+instance Bson SubmissionC where
+  toBson (Ask title content) = [ u "type"    =: $(getLabel 'Ask)
+                               , u "title"   =: title
+                               , u "content" =: content
+                               ]
+  toBson (Link url)          = [ u "type"    =: $(getLabel 'Link)
+                               , u "url"     =: url
+                               ]
+  
+  fromBson doc = do
+    type' <- lookup (u "type") doc
+    case type' of
+      "Ask" -> do
+        title <- lookup (u "title") doc
+        content <- lookup (u "content") doc
+        return $ Ask title content
+      _ -> do
+        url <- lookup (u "url") doc
+        return $ Link url
+
+instance Val SubmissionC where
+  val = Doc . toBson
+  cast' (Doc doc) = fromBson doc
+  cast' _ = Nothing
+-}
   
 -------------------------------------------------------------------------------
 

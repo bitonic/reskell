@@ -69,7 +69,9 @@ deriveBson type' = do
   doc <- newName "doc"         
   i' <- instanceD (cxt []) (mkType ''Val [mkType type' (map varT keys)])
         [ funD 'val   [clause [] (normalB $ [| Doc . toBson |]) []]
-        , funD 'cast' [clause [conP 'Doc [varP doc]] (normalB $ [| fromBson $(varE doc) |]) []]
+        , funD 'cast' [ clause [conP 'Doc [varP doc]] (normalB $ [| fromBson $(varE doc) |]) []
+                      , clause [[p| _ |]] (normalB $ [| Nothing |]) []
+                      ]          
         ]
   
   return [i, i']
@@ -92,7 +94,9 @@ deriveBson type' = do
     conv (PlainTV nm)    = nm
     conv (KindedTV nm _) = nm
     
-    inputError = error "deriveBson: Invalid type provided. The type must be a data with a single constructor or a newtype. The constructor must have named fields."
+    inputError = error $ "deriveBson: Invalid type provided. " ++
+                         "The type must be a data with a single constructor or a newtype. " ++
+                         "The constructor must have named fields."
                  
     deriveFromBson fields constr = do
       doc <- newName "doc"
@@ -117,4 +121,4 @@ selectFields ns = do
     gf d (n : ns') = [| ($(getLabel n) =: $(varE n) $(varE d)) : $(gf d ns') |]
 
 getLabel :: Name -> Q Exp
-getLabel n = [| u (nameBase n) |]
+getLabel n = [| $([| u (nameBase n)|]) |]

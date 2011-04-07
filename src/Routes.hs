@@ -21,4 +21,4 @@ siteSpec = setDefault (R_Listing Links New)
                 }
 
 runRoutes :: Context -> ServerPart Response
-runRoutes context = mapServerPartT (unpackContext context) $ implSite "/" "" siteSpec
+runRoutes context = mapServerPartT (unpackContext context) $ implSite "/" "web/" siteSpec
