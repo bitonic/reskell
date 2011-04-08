@@ -42,14 +42,9 @@ type MonadTemplate = XMLGenT MonadPage (HSX.XML MonadPage)
 render :: RouteT Route ContextM XML -> MonadPage Response
 render = (=<<) (ok . toResponse) 
 
-template ::
-  ( XMLGenerator m
-  , EmbedAsChild m content
-  , EmbedAsChild m Text
-  )
-  => Route
-  -> (Text, Maybe Text, content)
-  -> m (HSX.XML m)
+template :: Route
+            -> (Text, Maybe MonadTemplate, MonadTemplate)
+            -> MonadPage (HSX.XML MonadPage)
 template r (title, heading, content) =
   unXMLGenT $
     <html>
@@ -80,7 +75,6 @@ template r (title, heading, content) =
       
     </html>
     
-    
 e404 :: RouteT Route ContextM Response
 e404 = do
   let c = <h2> 404 - The page you're looking for does not exist. </h2>
@@ -89,4 +83,5 @@ e404 = do
 e500 :: RouteT Route ContextM Response
 e500 = do
   let c = <h2> 500 - Internal server error. </h2>
-  internalServerError . toResponse =<< template R_404 (tt "500 - Internal Server Error", Nothing, c)
+  internalServerError . toResponse =<<
+    template R_404 (tt "500 - Internal Server Error", Nothing, c)

@@ -1,5 +1,4 @@
-{-# Language OverloadedStrings, DeriveDataTypeable, TemplateHaskell,
-    ExistentialQuantification #-}
+{-# Language OverloadedStrings, DeriveDataTypeable, TemplateHaskell #-}
 
 module DB.Post (
     newSubmission
@@ -46,48 +45,47 @@ incPostCounter =
   
 
 newSubmission :: (MonadIO m, DbAccess m)
-                 => UserName -> Text -> SubmissionType -> Text -> m PostId
-newSubmission username title type' content = do
+                 => UserName -> Text -> SContent -> m Submission
+newSubmission username title content = do
   time <- liftIO getCurrentTime
   id' <- incPostCounter
-  let submission = Submission { submissionId       = id'
-                              , submissionUserName = username
-                              , submissionTime     = time
-                              , submissionTitle    = title
-                              , submissionType     = type'
-                              , submissionContent  = content
-                              , submissionVotes    = 0
+  let submission = Submission { sId       = id'
+                              , sUserName = username
+                              , sTime     = time
+                              , sTitle    = title
+                              , sContent  = content
+                              , sVotes    = 0
                               }
   insert_ postColl $ toBson submission
-  return id'
+  return submission
 
 newComment :: (MonadIO m, DbAccess m, Post a)
-              => UserName -> Text -> Submission -> a -> m PostId
+              => UserName -> Text -> Submission -> a -> m Comment
 newComment username text submission parent = do
   time <- liftIO getCurrentTime
   id' <- incPostCounter
-  let comment = Comment { commentId         = id'
-                        , commentTime       = time
-                        , commentUserName   = username
-                        , commentText       = text
-                        , commentVotes      = 0
-                        , commentParent     = postId parent
-                        , commentSubmission = submissionId submission
+  let comment = Comment { cId         = id'
+                        , cTime       = time
+                        , cUserName   = username
+                        , cText       = text
+                        , cVotes      = 0
+                        , cParent     = pId parent
+                        , cSubmission = sId submission
                         }
   insert_ postColl $ toBson comment
-  return id'
+  return comment
 
 
 getSubmission :: DbAccess m => PostId -> m (Maybe Submission)
-getSubmission id' = getItem $ select [$(getLabel 'submissionId) =: id'] postColl
+getSubmission id' = getItem $ select [$(getLabel 'sId) =: id'] postColl
 getComment    :: DbAccess m => PostId -> m (Maybe Comment)
-getComment    id' = getItem $ select [$(getLabel 'commentId)    =: id'] postColl
+getComment    id' = getItem $ select [$(getLabel 'cId) =: id'] postColl
 
 
 getPost :: DbAccess m => PostId -> m (Maybe (Either Submission Comment))
 getPost id' = do
-  pM <- findOne $ select ["$or" =: [[$(getLabel 'submissionId) =: id']
-                                  ,[$(getLabel 'commentId)    =: id']]] postColl
+  pM <- findOne $ select ["$or" =: [[$(getLabel 'sId) =: id']
+                                  ,[$(getLabel 'cId) =: id']]] postColl
   return $ pM >>= \p -> case fromBson p :: Maybe Submission of
     Just s  -> Just $ Left s
     Nothing -> liftM Right (fromBson p :: Maybe Comment)
@@ -97,17 +95,17 @@ getPosts q = find q >>= rest >>= mapM fromBson
 
 getLinks, getAsks :: DbAccess m => Limit -> Word32 -> m [Submission]
 getLinks l s =
-  getPosts (select [$(getLabel 'submissionType) =: Link] postColl)
-                      { limit = l
+  getPosts (select (subDocument $(getLabel 'sContent) $(getConsDoc 'Link))
+            postColl) { limit = l
                       , skip = s 
-                      , sort = [ $(getLabel 'submissionTime) =: (-1 :: Int) ]
+                      , sort = [ $(getLabel 'sContent) =: (-1 :: Int) ]
                       }  
 getAsks l s =
-  getPosts (select [$(getLabel 'submissionType) =: Ask] postColl)
-                      { limit = l
+  getPosts (select (subDocument $(getLabel 'sContent) $(getConsDoc 'Ask))
+            postColl) { limit = l
                       , skip = s
-                      , sort = [ $(getLabel 'submissionTime) =: (-1 :: Int) ]
+                      , sort = [ $(getLabel 'sContent) =: (-1 :: Int) ]
                       }
 
 getComments :: (DbAccess m, Post a) => a -> m [Comment]
-getComments a = getPosts (select [ $(getLabel 'commentParent) =: postId a ] postColl)
+getComments a = getPosts (select [ $(getLabel 'cParent) =: pId a ] postColl)

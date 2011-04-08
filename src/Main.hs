@@ -46,8 +46,8 @@ main = do
     waitForTermination
   where
     runServer context = S.simpleHTTP (C.httpConf context) $ do
-    time <- liftIO $ getCurrentTime
-    runRoutes $ context { C.currTime = time }
+      time <- liftIO $ getCurrentTime
+      runRoutes $ context { C.currTime = time }
       
 
               

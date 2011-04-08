@@ -19,7 +19,7 @@ module Types (
     
   -- * Posts  
   , PostId
-  , SubmissionType (..)
+  , SContent (..)
   , Submission (..)
   , Comment (..)
   , Post (..)
@@ -109,27 +109,23 @@ hashUserPassword user = do
 type PostId = Int
 
 class (Bson a, Typeable a) => Post a where
-  postId       :: a -> PostId
-  postTime     :: a -> UTCTime
-  postUserName :: a -> UserName
-  postVotes    :: a -> Int
+  pId       :: a -> PostId
+  pTime     :: a -> UTCTime
+  pUserName :: a -> UserName
+  pVotes    :: a -> Int
   
 
-data SubmissionType = Ask | Link
-                    deriving (Eq, Ord, Enum, Read, Show, Data, Typeable)
+data SContent = Ask Text  
+              | Link Text
+              deriving (Eq, Ord, Show, Read, Data, Typeable)
+$(deriveBson ''SContent)
 
-instance Val SubmissionType where
-  val     = val . show
-  cast' v = cast' v >>= readM
-  
-
-data Submission = Submission { submissionId       :: PostId
-                             , submissionUserName :: UserName
-                             , submissionTime     :: UTCTime
-                             , submissionTitle    :: Text
-                             , submissionType     :: SubmissionType
-                             , submissionContent  :: Text
-                             , submissionVotes    :: Int
+data Submission = Submission { sId       :: PostId
+                             , sUserName :: UserName
+                             , sTime     :: UTCTime
+                             , sTitle    :: Text
+                             , sContent  :: SContent
+                             , sVotes    :: Int
                              }
                 deriving (Eq, Ord, Show, Read, Data, Typeable)
 
@@ -137,64 +133,30 @@ $(deriveBson ''Submission)
 
   
   
-data Comment = Comment { commentId         :: PostId
-                       , commentUserName   :: Text
-                       , commentTime       :: UTCTime
-                       , commentText       :: Text
-                       , commentVotes      :: Int
-                       , commentParent     :: Int
-                       , commentSubmission :: Int
+data Comment = Comment { cId         :: PostId
+                       , cUserName   :: Text
+                       , cTime       :: UTCTime
+                       , cText       :: Text
+                       , cVotes      :: Int
+                       , cParent     :: Int
+                       , cSubmission :: Int
                        }
              deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 $(deriveBson ''Comment)
 
 instance Post Submission where
-  postId       = submissionId
-  postTime     = submissionTime
-  postUserName = submissionUserName
-  postVotes    = submissionVotes
+  pId       = sId
+  pTime     = sTime
+  pUserName = sUserName
+  pVotes    = sVotes
 
 instance Post Comment where
-  postId       = commentId
-  postTime     = commentTime
-  postUserName = commentUserName
-  postVotes    = commentVotes
+  pId       = cId
+  pTime     = cTime
+  pUserName = cUserName
+  pVotes    = cVotes
 
-
-{-
-data SubmissionC = Ask Text Text
-                 | Link Text
-                 deriving (Eq, Ord, Read, Show, Data, Typeable)
-
-submissionTypeLabel :: String
-submissionTypeLabel = "type"
-
-instance Bson SubmissionC where
-  toBson (Ask title content) = [ u "type"    =: $(getLabel 'Ask)
-                               , u "title"   =: title
-                               , u "content" =: content
-                               ]
-  toBson (Link url)          = [ u "type"    =: $(getLabel 'Link)
-                               , u "url"     =: url
-                               ]
-  
-  fromBson doc = do
-    type' <- lookup (u "type") doc
-    case type' of
-      "Ask" -> do
-        title <- lookup (u "title") doc
-        content <- lookup (u "content") doc
-        return $ Ask title content
-      _ -> do
-        url <- lookup (u "url") doc
-        return $ Link url
-
-instance Val SubmissionC where
-  val = Doc . toBson
-  cast' (Doc doc) = fromBson doc
-  cast' _ = Nothing
--}
   
 -------------------------------------------------------------------------------
 

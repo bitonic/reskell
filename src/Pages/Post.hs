@@ -25,7 +25,7 @@ import Pages.Common
 
 
 showTimeDiff :: UTCTime -> UTCTime -> String
-showTimeDiff t1 t2 | diff < min'  = "just now"
+showTimeDiff t1 t2 | diff < min'  = " just now"
                    | diff < hour  = plural "minute" $ diff /// min'
                    | diff < day   = plural "hour" $   diff /// hour
                    | diff < month = plural "day" $    diff /// day
@@ -51,8 +51,8 @@ showTimeDiff t1 t2 | diff < min'  = "just now"
 whenPosted :: (Post a, MonadContext m) => a -> m Text
 whenPosted p = do
   now <- askContext currTime
-  return $ T.concat [tt (show $ postVotes p), tt " points by ",
-                     (postUserName p), tt (showTimeDiff now $ postTime p)]
+  return $ T.concat [tt (show $ pVotes p), tt " points by ",
+                     (pUserName p), tt (showTimeDiff now $ pTime p)]
 
 {-
 renderComments :: Post a => a -> RouteT Route ContextM XML
@@ -69,7 +69,7 @@ submissionDetails :: Submission -> MonadTemplate
 submissionDetails s = do
   posted <- whenPosted s
   <div class="submissionDetails">
-    <% posted %> | <a href=(R_Post (submissionId s))> 
+    <% posted %> | <a href=(R_Post (sId s))> 
     <% comments 0 %> </a>
     </div>
   where
@@ -82,18 +82,18 @@ commentDetails c sM = do
   posted <- whenPosted c
   <div class="commentDetails">
     <% posted %> |
-    <a href=(R_Post (commentId c))>link</a>
+    <a href=(R_Post (cId c))>link</a>
     <%
       case sM of
         Nothing -> []
         Just s  -> [do
-          submissionURL <- showURL $ R_Post (submissionId s)
-          if submissionId s == commentParent c
+          submissionURL <- showURL $ R_Post (sId s)
+          if sId s == cParent c
             then <%> | on: <a href=submissionURL>
-                     <% submissionTitle s %></a> </%>
+                     <% sTitle s %></a> </%>
             else do
-              <%> | <a href=(R_Post (commentParent c))>parent</a>
-                  | on: <a href=submissionURL><% submissionTitle s %></a>
+              <%> | <a href=(R_Post (cParent c))>parent</a> |
+                   on: <a href=submissionURL><% sTitle s %></a>
                   </%>]
     %>
     </div>
@@ -104,11 +104,16 @@ truncateText t n | T.length t < n = t
                  | otherwise      = T.concat [T.take n t, tt "..."]
 
 postPage :: Route -> Either Submission Comment -> MonadPage Response
-postPage r (Left p) = render $ template r (title, Just title, submissionDetails p)
-  where title = submissionTitle p
+postPage r (Left p) = render $
+                      template r (title, Just titleLink, submissionDetails p)
+  where
+    title = sTitle p
+    titleLink = case sContent p of
+      Ask _  -> <a href=(R_Post (sId p))> <% title %> </a>
+      Link l -> <a href=l> <% title %> </a>
 postPage r (Right p) = do
-  sM <- query $ getSubmission (commentSubmission p)
+  sM <- query $ getSubmission (cSubmission p)
   case sM of
     Nothing -> e500
     Just s  -> render $ template r $
-               (truncateText (commentText p) 200, Nothing, commentDetails p (Just s))
+               (truncateText (cText p) 200, Nothing, commentDetails p (Just s))
