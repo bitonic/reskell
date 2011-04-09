@@ -1,0 +1,101 @@
+
+body
+{
+  width: 80%;
+  min-width: 1000px;
+  font-family: Verdana, sans;
+  font-size: 10pt;
+  margin: 0 auto;
+}
+
+
+@font-face
+{
+  font-family: "Adelle Basic";
+  font-weight: bold;
+  src: url("../fonts/AdelleBasic_Bold.otf");
+}
+
+/* Header */
+
+#header
+{
+  background-color: #4E6272;
+  background-image: url("../images/haskellLogo.png");
+  background-repeat: no-repeat;
+  background-position: 5px center;
+  padding: 0.5em 0.5em 0.3em 40px;
+  color: white;
+  vertical-align: middle;
+  margin-top: 0.5em;
+  text-shadow: 1px 1px 1px #494949;
+}
+
+#header a
+{
+  color: white;
+}
+
+#header a.highlighted
+{
+  text-decoration: none;
+}
+
+h1
+{
+  display: inline;
+  font-size: 1.6em;
+  font-weight:bold;
+  font-family: "Adelle Basic", Verdana, sans;
+  margin-right:0.3em;
+}
+
+/* Content */
+
+#content
+{
+  padding: 0.5em;
+  background-color: #f6f6ef;
+}
+
+h2
+{
+  font-size: 1.3em;
+  color: #555555;
+}
+
+h2 a
+{
+  text-decoration: none;
+  color: #67666b;
+}
+
+.submissionDetails, .commentDetails
+{
+  font-size: 0.85em;
+  padding: 0.2em 0;
+  color: #949494;
+}
+
+.submissionDetails a, .commentDetails a
+{
+  color: #949494;
+}
+
+.linkDomain
+{
+  color: #949494;
+  font-size: 0.7em;
+}
+
+.postText
+{
+  padding:0.3em 0;
+}
+
+.comments
+{
+  margin-left: 2em;
+  margin-top:0.3em;
+  min-width: 50%;
+}

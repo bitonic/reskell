@@ -128,10 +128,14 @@ deriveBson type' = do
       -- will be converted to ["_cons" =: "Foo", "_data" =: ["francesco", 4]]
       else do
         fields <- mapM (\_ -> newName "f") types
-        clause [conP name (map varP fields)] (normalB $ [| (merge $(getConsDoc name)) . (\f -> [dataField =: f]) $ $(listE (map varE fields)) |]) []
+        clause [conP name (map varP fields)]
+          (normalB $ [| (merge $(getConsDoc name)) . (\f -> [dataField =: f]) $ $(listE (map varE fields)) |]) []
     deriveToBson _ = inputError
 
 
+    -- deriveFromBson gets the _cons field, and guesses which
+    -- constructor to use. Fails if it can't match _cons with a
+    -- constructor of the data type.
     deriveFromBson :: [Con] -> Q Exp
     deriveFromBson conss = do
       con <- newName "con"
@@ -145,8 +149,11 @@ deriveBson type' = do
     noMatch = [match [p| _ |] (normalB [| fail "Couldn't find right constructor" |]) []]
 
 
+    -- Generate the case statements after we get the _cons field, to
+    -- match it and get the right constructor
     genMatch :: Q Exp -> Con -> Q Match
     genMatch doc (RecC name fields) =
+      -- Match the string literal that we got from the doc (_cons)
       flip (match (litP $ StringL $ nameBase name)) [] $ do
         (fields', stmts) <- genStmts (map (\(n, _, _) -> n) fields) doc
         let ci = noBindS $ [| return $(recConE name fields') |]
@@ -156,9 +163,16 @@ deriveBson type' = do
         if null types
         then normalB [| return $(conE name) |]
         else do
+          -- In the case of a normal constructor with types in it, we
+          -- have to get the _data field and apply it to the
+          -- constructor
+          -- This gets the data, checks that the length is equal to
+          -- the number of types in the data type, then pattern
+          -- matches the array that we got and applies it to the
+          -- constructor (the foldl).
           data' <- newName "data"
           let typesN = length types
-          types' <- mapM (\_ -> newName "f") types
+          types' <- mapM (\_ -> newName "t") types
           let typesP = listP $ map varP types'
               con    = foldl (\e f -> (appE e (varE f))) (conE name) types'
           normalB $ doE [ bindS (varP data') [| lookup dataField $doc |]
@@ -171,6 +185,9 @@ deriveBson type' = do
                         ]
     genMatch _ _ = inputError
 
+    -- genStmts generates the lookups on the document and also returns
+    -- the vars names that are used in the statements, coupled with
+    -- the original fields.
     genStmts :: [Name] -> Q Exp -> Q ([Q (Name, Exp)], [Q Stmt])
     genStmts [] _ = return ([], [])
     genStmts (f : fs) doc = do

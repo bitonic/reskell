@@ -43,19 +43,21 @@ render :: RouteT Route ContextM XML -> MonadPage Response
 render = (=<<) (ok . toResponse) 
 
 template :: Route
-            -> (Text, Maybe MonadTemplate, MonadTemplate)
+            -> (Text, Maybe [MonadTemplate], [MonadTemplate])
             -> MonadPage (HSX.XML MonadPage)
 template r (title, heading, content) =
   unXMLGenT $
     <html>
       
       <head>
+        <link href=(R_Static ["css", "reset.css"]) media="screen" rel="stylesheet" type="text/css" />
+        <link href=(R_Static ["css", "style.css"]) media="screen" rel="stylesheet" type="text/css" />
         <title> <% T.concat [tt "Reskell - ", title] %> </title>
       </head>
       
       <body>
         <div id="header">
-          <h1> Reskell </h1>
+          <h1><a href=(R_Listing Links New)>Reskell</a></h1>
           
           menu...
         </div>
@@ -78,10 +80,10 @@ template r (title, heading, content) =
 e404 :: RouteT Route ContextM Response
 e404 = do
   let c = <h2> 404 - The page you're looking for does not exist. </h2>
-  notFound . toResponse =<< template R_404 (tt "404 - Not Found", Nothing, c)
+  notFound . toResponse =<< template R_404 (tt "404 - Not Found", Nothing, [c])
 
 e500 :: RouteT Route ContextM Response
 e500 = do
   let c = <h2> 500 - Internal server error. </h2>
   internalServerError . toResponse =<<
-    template R_404 (tt "500 - Internal Server Error", Nothing, c)
+    template R_404 (tt "500 - Internal Server Error", Nothing, [c])

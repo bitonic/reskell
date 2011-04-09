@@ -8,6 +8,7 @@ import System.Log.Logger       (Priority (..), logM)
 
 import Control.Concurrent      (forkIO, killThread)
 import Control.Exception       (bracket)
+import Control.Monad           (msum)
 import Control.Monad.Trans     (liftIO)
 
 import Data.Time.Clock         (getCurrentTime)
@@ -31,23 +32,20 @@ main = do
   
   pool <- M.newConnPool 1 (M.host $ mongohost args')
   
-  time <- getCurrentTime
-  
-  let context = C.Context { C.httpConf    = S.nullConf { S.port = port args' }
-                          , C.static      = static args'
-                          , C.database    = M.Database (M.u $ database args')
-                          , C.connPool    = pool
-                          , C.sessionUser = Nothing
-                          , C.currTime    = time
-                          }
-  
-  bracket (forkIO $ runServer context) killThread $ \_ -> do
+  bracket (forkIO $ runServer args' pool) killThread $ \_ -> do
     logM "Happstack.Server" NOTICE "System running, press 'e <ENTER>' or Ctrl-C to stop server"
     waitForTermination
   where
-    runServer context = S.simpleHTTP (C.httpConf context) $ do
+    runServer args' pool = S.simpleHTTP (S.nullConf { S.port = port args' }) $ do
       time <- liftIO $ getCurrentTime
-      runRoutes $ context { C.currTime = time }
+      let context = C.Context { C.database    = M.Database (M.u $ database args')
+                              , C.connPool    = pool 
+                              , C.sessionUser = Nothing
+                              , C.currTime    = time
+                              }
+      msum [ S.dir "static" $ S.serveDirectory S.DisableBrowsing [] (static args')
+           , runRoutes $ context { C.currTime = time }
+           ]
       
 
               

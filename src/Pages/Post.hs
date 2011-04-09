@@ -54,17 +54,27 @@ whenPosted p = do
   return $ T.concat [tt (show $ pVotes p), tt " points by ",
                      (pUserName p), tt (showTimeDiff now $ pTime p)]
 
-{-
-renderComments :: Post a => a -> RouteT Route ContextM XML
-renderComments p = do
-  comments <- query $ getComments p
-  let showComm
--}
 
--- renderComment :: Comment -> RouteT Route ContextM
--- renderComment c = do
+renderComment :: Comment -> MonadTemplate
+renderComment comment = do
+  comments <- mongoQuery $ getComments comment
+  <div class="comment">
+    <% commentDetails comment Nothing %>
+    <div class="postText">
+      <% cText comment %>
+    </div>
 
-  
+    <% if null comments
+       then []
+       else [<div class="comments">
+               <% map renderComment comments %>
+               </div>]
+       %>
+    </div>
+
+renderComments :: [Comment] -> [MonadTemplate]
+renderComments = map renderComment
+
 submissionDetails :: Submission -> MonadTemplate
 submissionDetails s = do
   posted <- whenPosted s
@@ -98,22 +108,38 @@ commentDetails c sM = do
     %>
     </div>
 
-
 truncateText :: Text -> Int -> Text
 truncateText t n | T.length t < n = t 
                  | otherwise      = T.concat [T.take n t, tt "..."]
 
 postPage :: Route -> Either Submission Comment -> MonadPage Response
-postPage r (Left p) = render $
-                      template r (title, Just titleLink, submissionDetails p)
+postPage r (Left p) = do
+  comments <- mongoQuery $ getComments p
+  render $ template r (title, Just titleLink, content comments)
   where
     title = sTitle p
+
     titleLink = case sContent p of
-      Ask _  -> <a href=(R_Post (sId p))> <% title %> </a>
-      Link l -> <a href=l> <% title %> </a>
+      Ask _    -> [<a href=(R_Post (sId p))> <% title %> </a>]
+      Link l d -> [ <a href=l><% title %></a>
+                 , <span class="linkDomain"> (<% d %>)</span>
+                 ]
+    
+    content comments = submissionDetails p : text ++ form ++ (renderComments comments)
+
+    text = case sContent p of
+      Ask t -> [<div class="postText"><% t %></div>]
+      _     -> []
+
+    form = []
+
+        
 postPage r (Right p) = do
-  sM <- query $ getSubmission (cSubmission p)
+  sM <- mongoQuery $ getSubmission (cSubmission p)
   case sM of
     Nothing -> e500
-    Just s  -> render $ template r $
-               (truncateText (cText p) 200, Nothing, commentDetails p (Just s))
+    Just s  -> do
+      comments <- mongoQuery $ getComments p
+      render $ template r $
+               (truncateText (cText p) 200, Nothing,
+                commentDetails p (Just s) : (renderComments comments))

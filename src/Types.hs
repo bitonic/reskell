@@ -20,6 +20,7 @@ module Types (
   -- * Posts  
   , PostId
   , SContent (..)
+  , getDomain
   , Submission (..)
   , Comment (..)
   , Post (..)
@@ -36,13 +37,17 @@ import Data.Bson
 import Data.Bson.Mapping
 import Data.Data               (Data, Typeable)
 import Data.Text               (Text)
+import qualified Data.Text as T
 import Data.Text.Encoding      (encodeUtf8, decodeUtf8)
 import Data.ByteString         (ByteString)
 import Data.Time.Clock         (UTCTime)
 import Data.CompactString.UTF8 (fromByteString_, toByteString)
 
+import Text.Parsec.Prim
+import Text.Parsec.Char
+import Text.Parsec.Combinator
 
-import Happstack.Server        (Conf, ServerPartT, UnWebT)
+import Happstack.Server        (ServerPartT, UnWebT)
 
 import Database.MongoDB        (Database (..), ConnPool, Host)
 
@@ -86,10 +91,10 @@ instance Val UserRank where
 type UserName = Text
 type Password = ByteString
 
-data User = User { userName :: UserName
-                 , userPassword :: Password
-                 , userRank :: UserRank
-                 , userAbout :: Text
+data User = User { uName :: UserName
+                 , uPassword :: Password
+                 , uRank :: UserRank
+                 , uAbout :: Text
                  }
           deriving (Eq, Ord, Read, Show, Data, Typeable)
 
@@ -100,8 +105,8 @@ hashStrength = 12
 
 hashUserPassword :: User -> IO User
 hashUserPassword user = do
-  hashedp <- makePassword (userPassword user) hashStrength
-  return user { userPassword = hashedp }
+  hashedp <- makePassword (uPassword user) hashStrength
+  return user { uPassword = hashedp }
 
 
 -------------------------------------------------------------------------------
@@ -116,9 +121,32 @@ class (Bson a, Typeable a) => Post a where
   
 
 data SContent = Ask Text  
-              | Link Text
+              | Link Text Text -- ^ url, domain
               deriving (Eq, Ord, Show, Read, Data, Typeable)
 $(deriveBson ''SContent)
+
+
+parseProtocol = string "http://" <|> string "https://"
+
+parseDomain = do
+  parseProtocol
+  d1 <- liftM ('.' :) domainLetters
+  d2 <- domainSeg
+  rest <- manyTill domainSeg (eof <|> (char '/' >> return ()))
+  let all' = d1 : d2 : rest
+  return $ tail $ concat $ drop (length all' - 2) $ all'
+  where
+    domainSeg = do
+      char '.'
+      d <- domainLetters
+      return $ '.' : d
+    domainLetters = many1 $ oneOf $ ['-'] ++ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']
+
+getDomain :: Text -> Maybe Text
+getDomain url = case parse parseDomain "" (T.unpack url) of
+  Right p -> Just $ T.pack p
+  Left _  -> Nothing
+
 
 data Submission = Submission { sId       :: PostId
                              , sUserName :: UserName
@@ -160,9 +188,7 @@ instance Post Comment where
   
 -------------------------------------------------------------------------------
 
-data Context = Context { httpConf    :: Conf
-                       , static      :: FilePath
-                       , database    :: Database
+data Context = Context { database    :: Database
                        , connPool    :: ConnPool Host
                        , sessionUser :: Maybe User
                        , currTime    :: UTCTime

@@ -23,7 +23,7 @@ import Data.Word               (Word32)
 
 import Database.MongoDB
 
-import DB.Common
+import DB.Mongo
 import Types
 
 

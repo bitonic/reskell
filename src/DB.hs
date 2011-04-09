@@ -1,10 +1,8 @@
 module DB (
-    module DB.User
-  , module DB.Post
-  , query
+    module DB.Post
+  , mongoQuery
   ) where
 
-import DB.User
 import DB.Post
-import DB.Common
+import DB.Mongo
 
