@@ -1,8 +1,8 @@
 {-# Language OverloadedStrings #-}
 
-module DB.Mongo (
+module DB.Common (
     getItem
-  , mongoQuery
+  , query
   ) where
 
 import Control.Monad           (liftM)
@@ -22,7 +22,7 @@ getItem :: (Bson i, DbAccess m) => Query -> m (Maybe i)
 getItem q = liftM (>>= fromBson) $ findOne q
 
 
-mongoQuery q = do
+query q = do
   cx <- lift ask
   let pool = connPool cx
       db   = database cx

@@ -99,3 +99,11 @@ h2 a
   margin-top:0.3em;
   min-width: 50%;
 }
+
+/* Footer */
+
+#footer
+{
+  text-align: center;
+  padding:1em;
+}

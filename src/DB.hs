@@ -1,8 +1,8 @@
 module DB (
     module DB.Post
-  , mongoQuery
+  , query
   ) where
 
 import DB.Post
-import DB.Mongo
+import DB.Common
 

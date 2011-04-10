@@ -7,10 +7,9 @@ module Routes.Types (
   ) where
 
 
-import Control.Monad
+import Data.Data                     (Data, Typeable)
 
-import Data.Data               (Data, Typeable)
-import qualified Data.Text as T
+import Control.Monad
 
 import Text.ParserCombinators.Parsec (option)
 
@@ -44,7 +43,7 @@ instance PathInfo Route where
   toPathSegments (R_Vote id' up)        = ["vote", show id', show up]
   toPathSegments  R_Submit              = ["submit"]
   toPathSegments (R_Comment id')        = ["comment", show id']
-  toPathSegments (R_User username)      = ["user", T.unpack username]
+  toPathSegments (R_User username)      = ["user", username]
   toPathSegments (R_Login route)        = "login" : toPathSegments route
   toPathSegments (R_Static segs)        = "static" : segs
   toPathSegments  R_404                 = error "toPathSegments: Can't link to 404"
@@ -67,7 +66,7 @@ instance PathInfo Route where
          , do segment "comment"
               liftM R_Comment (anySegment >>= readM)
          , do segment "user"
-              liftM (R_User . T.pack) (anySegment >>= readM)
+              liftM R_User (anySegment >>= readM)
          , do segment "login"
               route <- option home fromPathSegments
               return $ R_Login route

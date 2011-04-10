@@ -18,12 +18,11 @@ import Control.Monad.Trans     (liftIO, MonadIO)
 
 import Data.Time.Clock
 import Data.Bson.Mapping
-import Data.Text               (Text)
 import Data.Word               (Word32)
 
 import Database.MongoDB
 
-import DB.Mongo
+import DB.Common
 import Types
 
 
@@ -45,7 +44,7 @@ incPostCounter =
   
 
 newSubmission :: (MonadIO m, DbAccess m)
-                 => UserName -> Text -> SContent -> m Submission
+                 => UserName -> String -> SContent -> m Submission
 newSubmission username title content = do
   time <- liftIO getCurrentTime
   id' <- incPostCounter
@@ -60,7 +59,7 @@ newSubmission username title content = do
   return submission
 
 newComment :: (MonadIO m, DbAccess m, Post a)
-              => UserName -> Text -> Submission -> a -> m Comment
+              => UserName -> String -> Submission -> a -> m Comment
 newComment username text submission parent = do
   time <- liftIO getCurrentTime
   id' <- incPostCounter

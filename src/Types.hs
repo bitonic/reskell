@@ -14,8 +14,6 @@ module Types (
   , User (..)
   , UserName
   , Password
-  , hashUserPassword
-  , hashStrength
     
   -- * Posts  
   , PostId
@@ -36,12 +34,8 @@ import Control.Monad.Reader
 import Data.Bson               
 import Data.Bson.Mapping
 import Data.Data               (Data, Typeable)
-import Data.Text               (Text)
-import qualified Data.Text as T
-import Data.Text.Encoding      (encodeUtf8, decodeUtf8)
 import Data.ByteString         (ByteString)
 import Data.Time.Clock         (UTCTime)
-import Data.CompactString.UTF8 (fromByteString_, toByteString)
 
 import Text.Parsec.Prim
 import Text.Parsec.Char
@@ -55,8 +49,6 @@ import Web.Routes              (RouteT)
 
 import HSP                     (XMLGenT)
 
-import Crypto.PasswordStore
-
 
 readM :: (Read a, Monad m) => String -> m a
 readM s | length res > 0 = return $ (fst . head) res
@@ -66,10 +58,6 @@ readM s | length res > 0 = return $ (fst . head) res
 
 
 -------------------------------------------------------------------------------
-
-instance Val Text where
-  val     = val . fromByteString_ . encodeUtf8
-  cast' v = liftM (decodeUtf8 . toByteString) $ cast' v
   
 instance Val ByteString where
   val     = val . Binary
@@ -82,32 +70,18 @@ instance Val ByteString where
   
 data UserRank = Member | Admin
               deriving (Eq, Ord, Enum, Read, Show, Data, Typeable)
+$(deriveBson ''UserRank)
 
-instance Val UserRank where
-  val     = val . show
-  cast' v = cast' v >>= readM
-
-
-type UserName = Text
+type UserName = String
 type Password = ByteString
 
 data User = User { uName :: UserName
                  , uPassword :: Password
                  , uRank :: UserRank
-                 , uAbout :: Text
+                 , uAbout :: String
                  }
           deriving (Eq, Ord, Read, Show, Data, Typeable)
-
 $(deriveBson ''User)
-
-hashStrength :: Int
-hashStrength = 12
-
-hashUserPassword :: User -> IO User
-hashUserPassword user = do
-  hashedp <- makePassword (uPassword user) hashStrength
-  return user { uPassword = hashedp }
-
 
 -------------------------------------------------------------------------------
 
@@ -120,8 +94,8 @@ class (Bson a, Typeable a) => Post a where
   pVotes    :: a -> Int
   
 
-data SContent = Ask Text  
-              | Link Text Text -- ^ url, domain
+data SContent = Ask String  
+              | Link String String -- ^ url, domain
               deriving (Eq, Ord, Show, Read, Data, Typeable)
 $(deriveBson ''SContent)
 
@@ -142,16 +116,16 @@ parseDomain = do
       return $ '.' : d
     domainLetters = many1 $ oneOf $ ['-'] ++ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']
 
-getDomain :: Text -> Maybe Text
-getDomain url = case parse parseDomain "" (T.unpack url) of
-  Right p -> Just $ T.pack p
+getDomain :: String -> Maybe String
+getDomain url = case parse parseDomain "" url of
+  Right p -> Just p
   Left _  -> Nothing
 
 
 data Submission = Submission { sId       :: PostId
                              , sUserName :: UserName
                              , sTime     :: UTCTime
-                             , sTitle    :: Text
+                             , sTitle    :: String
                              , sContent  :: SContent
                              , sVotes    :: Int
                              }
@@ -162,9 +136,9 @@ $(deriveBson ''Submission)
   
   
 data Comment = Comment { cId         :: PostId
-                       , cUserName   :: Text
+                       , cUserName   :: String
                        , cTime       :: UTCTime
-                       , cText       :: Text
+                       , cText       :: String
                        , cVotes      :: Int
                        , cParent     :: Int
                        , cSubmission :: Int

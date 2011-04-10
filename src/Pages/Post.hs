@@ -7,8 +7,6 @@ module Pages.Post (
 
 
 import Data.Time.Clock
-import Data.Text               (Text)
-import qualified Data.Text as T
 
 import HSP
 import HSP.ServerPartT         ()
@@ -48,16 +46,16 @@ showTimeDiff t1 t2 | diff < min'  = " just now"
       where s | n > 1 = "s "
               | otherwise = " "    
 
-whenPosted :: (Post a, MonadContext m) => a -> m Text
+whenPosted :: (Post a, MonadContext m) => a -> m String
 whenPosted p = do
   now <- askContext currTime
-  return $ T.concat [tt (show $ pVotes p), tt " points by ",
-                     (pUserName p), tt (showTimeDiff now $ pTime p)]
+  return $ (show $ pVotes p) ++ " points by " ++
+           (pUserName p) ++ (showTimeDiff now $ pTime p)
 
 
 renderComment :: Comment -> MonadTemplate
 renderComment comment = do
-  comments <- mongoQuery $ getComments comment
+  comments <- query $ getComments comment
   <div class="comment">
     <% commentDetails comment Nothing %>
     <div class="postText">
@@ -108,13 +106,13 @@ commentDetails c sM = do
     %>
     </div>
 
-truncateText :: Text -> Int -> Text
-truncateText t n | T.length t < n = t 
-                 | otherwise      = T.concat [T.take n t, tt "..."]
+truncateText :: String -> Int -> String
+truncateText t n | length t < n = t 
+                 | otherwise    = take n t ++ "..."
 
 postPage :: Route -> Either Submission Comment -> MonadPage Response
 postPage r (Left p) = do
-  comments <- mongoQuery $ getComments p
+  comments <- query $ getComments p
   render $ template r (title, Just titleLink, content comments)
   where
     title = sTitle p
@@ -135,11 +133,11 @@ postPage r (Left p) = do
 
         
 postPage r (Right p) = do
-  sM <- mongoQuery $ getSubmission (cSubmission p)
+  sM <- query $ getSubmission (cSubmission p)
   case sM of
     Nothing -> e500
     Just s  -> do
-      comments <- mongoQuery $ getComments p
+      comments <- query $ getComments p
       render $ template r $
                (truncateText (cText p) 200, Nothing,
                 commentDetails p (Just s) : (renderComments comments))
