@@ -6,8 +6,6 @@ module DB.Common (
   ) where
 
 import Control.Monad           (liftM)
-import Control.Monad.Trans     (lift)
-import Control.Monad.Reader    (ask)
 
 import Data.Bson.Mapping
 
@@ -23,7 +21,7 @@ getItem q = liftM (>>= fromBson) $ findOne q
 
 
 query q = do
-  cx <- lift ask
+  cx <- getContext
   let pool = connPool cx
       db   = database cx
   r <- access safe Master pool (use db q)

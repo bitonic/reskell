@@ -34,11 +34,22 @@ userColl = "user"
 sessionColl :: Collection
 sessionColl = "session"
 
+hashStrenght :: Int
+hashStrenght = 12
 
 -------------------------------------------------------------------------------
 
-newUser :: DbAccess m => User -> m ()
-newUser user' = insert_ userColl $ toBson user'
+newUser :: DbAccess m => UserName -> Password -> UserRank -> String -> m ()
+newUser username password rank about = do
+  time <- getCurrentTime
+  hpassword <- makePassword password hashStrenght
+  let user = User { uName     = username
+                  , uPassword = hpassword
+                  , uRank     = rank
+                  , uAbout    = about
+                  , uCreated  = time
+                  }
+  insert_ userColl $ toBson user
   
 getUser :: DbAccess m => UserName -> m (Maybe User)
 getUser username = getItem $ select [ $(getLabel 'userName) =: username ] userColl

@@ -14,6 +14,8 @@ module Types (
   , User (..)
   , UserName
   , Password
+  , Session
+  , genSessionId
     
   -- * Posts  
   , PostId
@@ -29,12 +31,16 @@ module Types (
 
 
 
+import Control.Monad.Trans
 import Control.Monad.Reader
+import Control.Monad.Error
+import Control.Concurrent.MVar
 
 import Data.Bson               
 import Data.Bson.Mapping
 import Data.Data               (Data, Typeable)
 import Data.ByteString         (ByteString)
+import qualified Data.ByteString.Char8 as B8
 import Data.Time.Clock         (UTCTime)
 
 import Text.Parsec.Prim
@@ -43,11 +49,15 @@ import Text.Parsec.Combinator
 
 import Happstack.Server        (ServerPartT, UnWebT)
 
-import Database.MongoDB        (Database (..), ConnPool, Host)
+import Database.MongoDB        (Database (..), ConnPool, Host, Failure)
 
 import Web.Routes              (RouteT)
 
 import HSP                     (XMLGenT)
+
+import Crypto.PasswordStore
+
+import Numeric                 (showHex)
 
 
 readM :: (Read a, Monad m) => String -> m a
@@ -75,13 +85,31 @@ $(deriveBson ''UserRank)
 type UserName = String
 type Password = ByteString
 
-data User = User { uName :: UserName
+data User = User { uName     :: UserName
                  , uPassword :: Password
-                 , uRank :: UserRank
-                 , uAbout :: String
+                 , uRank     :: UserRank
+                 , uAbout    :: String
+                 , uCreated  :: UTCTime
                  }
           deriving (Eq, Ord, Read, Show, Data, Typeable)
 $(deriveBson ''User)
+
+
+data Session = Session { sessionId       :: ByteString
+                       , sessionUserName :: UserName
+                       , sessionTime     :: UTCTime
+                       }
+             deriving (Eq, Ord, Read, Show, Data, Typeable)
+$(deriveBson ''Session)
+
+
+genSessionId :: IO ByteString
+genSessionId = do
+  oid <- liftM oid2bs genObjectId
+  salt <- liftM exportSalt genSaltIO
+  return $ B8.concat [oid, salt]
+  where
+    oid2bs (Oid a b) = B8.pack . showHex a . showHex b $ ""
 
 -------------------------------------------------------------------------------
 
@@ -166,7 +194,21 @@ data Context = Context { database    :: Database
                        , connPool    :: ConnPool Host
                        , sessionUser :: Maybe User
                        , currTime    :: UTCTime
+                         
+                       , userMVar    :: MVar ()
                        }
+
+
+data AppError = DatabaseError Failure
+              | NotFound
+              | ServerError String
+              | OtherError String
+
+instance Error AppError where
+  noMsg  = OtherError ""
+  strMsg = OtherError
+
+type AppM = ServerPartT (ErrorT AppError (ReaderT Context IO))
 
 type ContextM = ServerPartT (ReaderT Context IO)
 
@@ -177,6 +219,9 @@ unpackContext context ct = runReaderT ct context >>= return
 class Monad m => MonadContext m where
   getContext :: m Context
 
+instance MonadContext (ServerPartT (ErrorT AppError (ReaderT Context IO))) where
+  getContext = ask
+  
 instance MonadContext (ServerPartT (ReaderT Context IO)) where
   getContext = ask 
 
@@ -188,5 +233,6 @@ instance MonadContext m => MonadContext (XMLGenT (RouteT url m)) where
 
 askContext :: MonadContext m => (Context -> r) -> m r
 askContext = (`liftM` getContext)
+  
 
 -------------------------------------------------------------------------------

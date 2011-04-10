@@ -10,6 +10,7 @@ import Control.Concurrent      (forkIO, killThread)
 import Control.Exception       (bracket)
 import Control.Monad           (msum)
 import Control.Monad.Trans     (liftIO)
+import Control.Concurrent.MVar
 
 import Data.Time.Clock         (getCurrentTime)
 
@@ -32,20 +33,26 @@ main = do
   
   pool <- M.newConnPool 1 (M.host $ mongohost args')
   
-  bracket (forkIO $ runServer args' pool) killThread $ \_ -> do
+  -- Prepare the various mvars
+  userMVar <- newEmptyMVar
+  
+  bracket (forkIO $ runServer args' pool userMVar) killThread $ \_ -> do
     logM "Happstack.Server" NOTICE "System running, press 'e <ENTER>' or Ctrl-C to stop server"
     waitForTermination
   where
-    runServer args' pool = S.simpleHTTP (S.nullConf { S.port = port args' }) $ do
-      time <- liftIO $ getCurrentTime
-      let context = C.Context { C.database    = M.Database (M.u $ database args')
-                              , C.connPool    = pool 
-                              , C.sessionUser = Nothing
-                              , C.currTime    = time
-                              }
-      msum [ S.dir "static" $ S.serveDirectory S.DisableBrowsing [] (static args')
-           , runRoutes $ context { C.currTime = time }
-           ]
+    runServer args' pool userMVar =
+      S.simpleHTTP (S.nullConf { S.port = port args' }) $ do
+        time <- liftIO $ getCurrentTime
+        let context = C.Context { C.database    = M.Database (M.u $ database args')
+                                , C.connPool    = pool 
+                                , C.sessionUser = Nothing
+                                , C.currTime    = time
+                                                  
+                                , C.userMVar    = userMVar
+                                }
+        msum [ S.dir "static" $ S.serveDirectory S.DisableBrowsing [] (static args')
+             , runRoutes $ context { C.currTime = time }
+             ]
       
 
               
