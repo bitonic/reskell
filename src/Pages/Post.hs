@@ -53,7 +53,7 @@ whenPosted p = do
            (pUserName p) ++ (showTimeDiff now $ pTime p)
 
 
-renderComment :: Comment -> MonadTemplate
+renderComment :: Comment -> TemplateM
 renderComment comment = do
   comments <- query $ getComments comment
   <div class="comment">
@@ -70,10 +70,10 @@ renderComment comment = do
        %>
     </div>
 
-renderComments :: [Comment] -> [MonadTemplate]
+renderComments :: [Comment] -> [TemplateM]
 renderComments = map renderComment
 
-submissionDetails :: Submission -> MonadTemplate
+submissionDetails :: Submission -> TemplateM
 submissionDetails s = do
   posted <- whenPosted s
   <div class="submissionDetails">
@@ -85,7 +85,7 @@ submissionDetails s = do
     comments 1 = "1 comment"
     comments n = show n ++ " comment"
 
-commentDetails :: Comment -> Maybe Submission -> MonadTemplate
+commentDetails :: Comment -> Maybe Submission -> TemplateM
 commentDetails c sM = do
   posted <- whenPosted c
   <div class="commentDetails">
@@ -110,7 +110,7 @@ truncateText :: String -> Int -> String
 truncateText t n | length t < n = t 
                  | otherwise    = take n t ++ "..."
 
-postPage :: Route -> Either Submission Comment -> MonadPage Response
+postPage :: Route -> Either Submission Comment -> PageM Response
 postPage r (Left p) = do
   comments <- query $ getComments p
   render $ template r (title, Just titleLink, content comments)
@@ -134,10 +134,8 @@ postPage r (Left p) = do
         
 postPage r (Right p) = do
   sM <- query $ getSubmission (cSubmission p)
-  case sM of
-    Nothing -> e500
-    Just s  -> do
-      comments <- query $ getComments p
-      render $ template r $
-               (truncateText (cText p) 200, Nothing,
-                commentDetails p (Just s) : (renderComments comments))
+  s <- maybe (serverError "Could not find comment's submission in the db.") return sM
+  comments <- query $ getComments p
+  render $ template r $
+    (truncateText (cText p) 200, Nothing,
+     commentDetails p (Just s) : (renderComments comments))

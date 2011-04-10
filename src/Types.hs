@@ -1,11 +1,18 @@
-{-# Language DeriveDataTypeable, TemplateHaskell, FlexibleInstances #-}
+{-# Language DeriveDataTypeable, TemplateHaskell, FlexibleInstances, 
+    FlexibleContexts #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Types (
+  -- * The application monad
+    AppM
+  , unpackApp
+  , AppError (..)
+  , notFoundError
+  , serverError
+  , databaseError
+    
   -- * Context
-    Context (..)
-  , ContextM
-  , unpackContext
+  , Context (..)
   , MonadContext (..)
   , askContext
     
@@ -47,7 +54,7 @@ import Text.Parsec.Prim
 import Text.Parsec.Char
 import Text.Parsec.Combinator
 
-import Happstack.Server        (ServerPartT, UnWebT)
+import Happstack.Server hiding (Host)
 
 import Database.MongoDB        (Database (..), ConnPool, Host, Failure)
 
@@ -203,6 +210,7 @@ data AppError = DatabaseError Failure
               | NotFound
               | ServerError String
               | OtherError String
+              deriving (Show)
 
 instance Error AppError where
   noMsg  = OtherError ""
@@ -210,11 +218,30 @@ instance Error AppError where
 
 type AppM = ServerPartT (ErrorT AppError (ReaderT Context IO))
 
-type ContextM = ServerPartT (ReaderT Context IO)
+notFoundError :: MonadError AppError m => m a
+notFoundError = throwError NotFound
+serverError   :: MonadError AppError m => String -> m a
+serverError   = throwError . ServerError
+databaseError :: MonadError AppError m => Failure -> m a
+databaseError = throwError . DatabaseError
 
 unpackContext :: Context -> UnWebT (ReaderT Context IO) a -> UnWebT IO a
 unpackContext context ct = runReaderT ct context >>= return
 
+unpackError :: UnWebT (ErrorT AppError (ReaderT Context IO)) a
+               -> UnWebT (ReaderT Context IO) a
+unpackError et = do
+  eitherV <- runErrorT et
+  return $ case eitherV of
+    Left err -> Just (Left $ toResponse $ 
+                      "Catastrophic failure " ++ show err,
+                      filterFun $ \r -> r{rsCode = 500})
+    Right x -> x
+
+unpackApp :: Context
+             -> UnWebT (ErrorT AppError (ReaderT Context IO)) a
+             -> UnWebT IO a
+unpackApp context = unpackContext context . unpackError
 
 class Monad m => MonadContext m where
   getContext :: m Context
@@ -222,9 +249,6 @@ class Monad m => MonadContext m where
 instance MonadContext (ServerPartT (ErrorT AppError (ReaderT Context IO))) where
   getContext = ask
   
-instance MonadContext (ServerPartT (ReaderT Context IO)) where
-  getContext = ask 
-
 instance MonadContext m => MonadContext (RouteT url m) where
   getContext = lift getContext
 

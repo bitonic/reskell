@@ -31,7 +31,6 @@ data Route = R_Listing PostListing PostSort
            | R_User UserName
            | R_Login Route
            | R_Static [String]
-           | R_404
            deriving (Read, Show, Eq, Ord, Typeable, Data)
 
 home :: Route
@@ -46,7 +45,6 @@ instance PathInfo Route where
   toPathSegments (R_User username)      = ["user", username]
   toPathSegments (R_Login route)        = "login" : toPathSegments route
   toPathSegments (R_Static segs)        = "static" : segs
-  toPathSegments  R_404                 = error "toPathSegments: Can't link to 404"
     
   -- Note that the "static" is left out on purpose, since we sould
   -- serve static files with fileServe before trying to dispatch the
@@ -70,5 +68,4 @@ instance PathInfo Route where
          , do segment "login"
               route <- option home fromPathSegments
               return $ R_Login route
-         , return R_404
          ]

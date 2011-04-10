@@ -39,20 +39,22 @@ main = do
   bracket (forkIO $ runServer args' pool userMVar) killThread $ \_ -> do
     logM "Happstack.Server" NOTICE "System running, press 'e <ENTER>' or Ctrl-C to stop server"
     waitForTermination
-  where
-    runServer args' pool userMVar =
-      S.simpleHTTP (S.nullConf { S.port = port args' }) $ do
-        time <- liftIO $ getCurrentTime
-        let context = C.Context { C.database    = M.Database (M.u $ database args')
-                                , C.connPool    = pool 
-                                , C.sessionUser = Nothing
-                                , C.currTime    = time
-                                                  
-                                , C.userMVar    = userMVar
-                                }
-        msum [ S.dir "static" $ S.serveDirectory S.DisableBrowsing [] (static args')
-             , runRoutes $ context { C.currTime = time }
-             ]
+
+
+runServer :: CmdData -> M.ConnPool M.Host -> MVar () -> IO ()
+runServer args' pool userMVar =
+  S.simpleHTTP (S.nullConf { S.port = port args' }) $ do
+    time <- liftIO $ getCurrentTime
+    let context = C.Context { C.database    = M.Database (M.u $ database args')
+                            , C.connPool    = pool 
+                            , C.sessionUser = Nothing
+                            , C.currTime    = time
+                                              
+                            , C.userMVar    = userMVar
+                            }
+    msum [ S.dir "static" $ S.serveDirectory S.DisableBrowsing [] (static args')
+         , S.mapServerPartT (C.unpackApp $ context { C.currTime = time }) runRoutes
+         ]
       
 
               

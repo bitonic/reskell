@@ -3,11 +3,11 @@
 
 module Pages.Common (
     template
-  , MonadPage  
-  , MonadTemplate
+  , PageM
+  , TemplateM
   , render
-  , e404
-  , e500
+--, e404
+--, e500
   ) where
 
 
@@ -27,16 +27,16 @@ import Types
 import Routes.Types
 
 
-type MonadPage = RouteT Route ContextM
-type MonadTemplate = XMLGenT MonadPage (HSX.XML MonadPage)
+type PageM = RouteT Route AppM
+type TemplateM = XMLGenT PageM (HSX.XML PageM)
 
 
-render :: RouteT Route ContextM XML -> MonadPage Response
+render :: PageM XML -> PageM Response
 render = (=<<) (ok . toResponse) 
 
 template :: Route
-            -> (String, Maybe [MonadTemplate], [MonadTemplate])
-            -> MonadPage (HSX.XML MonadPage)
+            -> (String, Maybe [TemplateM], [TemplateM])
+            -> PageM (HSX.XML PageM)
 template r (title, heading, content) =
   unXMLGenT $
     <html>
@@ -68,14 +68,16 @@ template r (title, heading, content) =
       </body>
       
     </html>
-    
-e404 :: RouteT Route ContextM Response
+
+{-
+e404 :: PageM Response
 e404 = do
   let c = <h2> 404 - The page you're looking for does not exist. </h2>
   notFound . toResponse =<< template R_404 ("404 - Not Found", Nothing, [c])
 
-e500 :: RouteT Route ContextM Response
+e500 :: PageM Response
 e500 = do
   let c = <h2> 500 - Internal server error. </h2>
   internalServerError . toResponse =<<
     template R_404 ("500 - Internal Server Error", Nothing, [c])
+-}

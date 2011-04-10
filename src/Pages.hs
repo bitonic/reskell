@@ -11,8 +11,6 @@ import HSP.ServerPartT         ()
 import Happstack.Server
 import Happstack.Server.HSP.HTML ()
 
-import Web.Routes
-
 import Types
 import Routes.Types
 import DB
@@ -22,7 +20,6 @@ import Pages.Post
 
 
 
-dispatch :: Route -> RouteT Route ContextM Response
-dispatch R_404          = e404
-dispatch r@(R_Post id') = query (getPost id') >>= maybe e404 (postPage r)
+dispatch :: Route -> PageM Response
+dispatch r@(R_Post id') = query (getPost id') >>= maybe notFoundError (postPage r)
 dispatch r = render $ template r ("", Nothing, [<h2> not yet implemented </h2>])
