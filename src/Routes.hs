@@ -9,12 +9,10 @@ import Web.Routes.Happstack
 
 import Types
 import Pages
-import Routes.Types
-
 
 
 siteSpec :: Site Route (AppM Response)
-siteSpec = setDefault (R_Listing Links New)
+siteSpec = setDefault home
            Site { handleSite = \f u -> unRouteT (dispatch u) f
                 , formatPathSegments = \u -> (toPathSegments u, [])
                 , parsePathSegments  = parseSegments fromPathSegments

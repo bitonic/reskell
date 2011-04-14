@@ -1,9 +1,10 @@
 {-# Language DeriveDataTypeable #-}
 
-module Routes.Types (
+module Types.Route (
     PostListing (..)
   , PostSort (..)
   , Route (..)
+  , home
   ) where
 
 
@@ -15,7 +16,8 @@ import Text.ParserCombinators.Parsec (option)
 
 import Web.Routes
 
-import Types
+import Types.User
+import Types.Post
 
 data PostListing = Asks | Links | Submissions | Comments
                  deriving (Read, Show, Eq, Ord, Typeable, Data)
@@ -30,6 +32,7 @@ data Route = R_Listing PostListing PostSort
            | R_Comment PostId
            | R_User UserName
            | R_Login Route
+           | R_Register Route
            | R_Static [String]
            deriving (Read, Show, Eq, Ord, Typeable, Data)
 
@@ -44,6 +47,7 @@ instance PathInfo Route where
   toPathSegments (R_Comment id')        = ["comment", show id']
   toPathSegments (R_User username)      = ["user", username]
   toPathSegments (R_Login route)        = "login" : toPathSegments route
+  toPathSegments (R_Register route)     = "register" : toPathSegments route
   toPathSegments (R_Static segs)        = "static" : segs
     
   -- Note that the "static" is left out on purpose, since we sould
@@ -68,4 +72,15 @@ instance PathInfo Route where
          , do segment "login"
               route <- option home fromPathSegments
               return $ R_Login route
+         , do segment "register"
+              route <- option home fromPathSegments
+              return $ R_Register route
          ]
+    
+  
+
+readM :: (Read a, Monad m) => String -> m a
+readM s | length res > 0 = return $ (fst . head) res
+        | otherwise      = fail "Could not parse."
+  where
+    res = reads s

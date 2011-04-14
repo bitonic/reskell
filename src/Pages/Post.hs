@@ -17,7 +17,6 @@ import Happstack.Server.HSP.HTML ()
 import Web.Routes
 
 import Types
-import Routes.Types
 import DB
 import Pages.Common
 
@@ -138,4 +137,6 @@ postPage r (Right p) = do
   comments <- query $ getComments p
   render $ template r $
     (truncateText (cText p) 200, Nothing,
-     commentDetails p (Just s) : (renderComments comments))
+     commentDetails p (Just s) :
+       <div class="postText"><% cText p %></div> :
+       (renderComments comments))

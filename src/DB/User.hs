@@ -5,24 +5,21 @@ module DB.User (
   , getUser
   , checkLogin
   
-  , newSession, checkSession
+  , newSession
+  , checkSession
   ) where
 
 import Prelude hiding (lookup)
 
-import Control.Monad           (mplus)
 import Control.Monad.Trans     (liftIO, MonadIO)
 
 import Data.Bson.Mapping
-import Data.UString
 import Data.ByteString         (ByteString)
-import qualified Data.ByteString.Char8 as BS
+import Data.Time.Clock         (getCurrentTime)
 
 import Database.MongoDB hiding (Password)
 
 import Crypto.PasswordStore
-
-import Numeric                 (showHex)
 
 import Types
 import DB.Common
@@ -39,10 +36,10 @@ hashStrenght = 12
 
 -------------------------------------------------------------------------------
 
-newUser :: DbAccess m => UserName -> Password -> UserRank -> String -> m ()
+newUser :: (MonadIO m, DbAccess m) => UserName -> Password -> UserRank -> String -> m ()
 newUser username password rank about = do
-  time <- getCurrentTime
-  hpassword <- makePassword password hashStrenght
+  time <- liftIO getCurrentTime
+  hpassword <- liftIO $ makePassword password hashStrenght
   let user = User { uName     = username
                   , uPassword = hpassword
                   , uRank     = rank
@@ -52,39 +49,37 @@ newUser username password rank about = do
   insert_ userColl $ toBson user
   
 getUser :: DbAccess m => UserName -> m (Maybe User)
-getUser username = getItem $ select [ $(getLabel 'userName) =: username ] userColl
+getUser username = getItem $ select [$(getLabel 'uName) =: username] userColl
 
 checkLogin :: DbAccess m => UserName -> ByteString -> m (Maybe User)
 checkLogin username password = do
   userM <- getUser username
   return $ do 
     user' <- userM
-    if verifyPassword password $ userPassword user' 
+    if verifyPassword password $ uPassword user' 
       then return user' 
       else Nothing
 
 
 -------------------------------------------------------------------------------
 
-newSession :: (DbAccess m, MonadIO m) => User -> m String
-newSession user' = do
-  salt <- liftIO genSaltIO
-  Oid x y <- liftIO genObjectId 
-  let sessionid = (showHex x . showHex y) (BS.unpack $ exportSalt salt)
-  let session = [ "_id"      =: pack sessionid
-                , "username" =: userName user' 
-                ]
-  insert_ sessionColl session
+newSession :: (DbAccess m, MonadIO m) => UserName -> m ByteString
+newSession userName = do
+  sessionid <- liftIO genSessionId
+  time <- liftIO getCurrentTime
+  let session = Session sessionid userName time
+  insert_ sessionColl $ toBson session
   return sessionid
 
-
+  
 checkSession :: DbAccess m => ByteString -> m (Maybe User)
 checkSession sessionid = do
-  let sessionidM = fromByteString sessionid `mplus` Nothing
-  case sessionidM of
+  time <- liftIO getCurrentTime
+  sessionM <- runCommand [ "findAndModify" =: sessionColl
+                        , "query"         =: [$(getLabel 'sessionId) =: sessionid]
+                        , "new"           =: True
+                        , "update"        =: ["$set" =: [$(getLabel 'sessionTime) =: time]]
+                        ]
+  case (lookup "value" sessionM >>= fromBson) of
     Nothing -> return Nothing
-    Just sessionid' -> do
-      sessionM <- findOne $ select [ "_id" =: sessionid' ] sessionColl
-      case sessionM of
-        Nothing -> return Nothing
-        Just session -> lookup "username" session >>= getUser
+    Just session -> getUser $ sessionUserName session

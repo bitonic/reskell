@@ -26,6 +26,8 @@ import DB.Common
 import Types
 
 
+
+
 postColl :: Collection
 postColl = "post"
 

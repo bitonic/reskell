@@ -7,7 +7,7 @@ import System.Environment      (getProgName)
 import System.Log.Logger       (Priority (..), logM)
 
 import Control.Concurrent      (forkIO, killThread)
-import Control.Exception       (bracket)
+import Control.Exception       (bracket, onException)
 import Control.Monad           (msum)
 import Control.Monad.Trans     (liftIO)
 import Control.Concurrent.MVar
@@ -42,20 +42,22 @@ main = do
 
 
 runServer :: CmdData -> M.ConnPool M.Host -> MVar () -> IO ()
-runServer args' pool userMVar =
-  S.simpleHTTP (S.nullConf { S.port = port args' }) $ do
-    time <- liftIO $ getCurrentTime
-    let context = C.Context { C.database    = M.Database (M.u $ database args')
-                            , C.connPool    = pool 
-                            , C.sessionUser = Nothing
-                            , C.currTime    = time
-                                              
-                            , C.userMVar    = userMVar
-                            }
-    msum [ S.dir "static" $ S.serveDirectory S.DisableBrowsing [] (static args')
-         , S.mapServerPartT (C.unpackApp $ context { C.currTime = time }) runRoutes
-         ]
-      
+runServer args' pool userMVar = do
+  time <- liftIO getCurrentTime
+  let context = C.Context { C.database    = M.Database (M.u $ database args')
+                          , C.connPool    = pool 
+                          , C.sessionUser = Nothing
+                          , C.currTime    = time
+                                            
+                          , C.userMVar    = userMVar
+                          }
+      http    = S.simpleHTTP (S.nullConf { S.port = port args' }) $ do
+        S.decodeBody (S.defaultBodyPolicy "/tmp/" 4096 4096 4096)
+        msum [ S.dir "static" $ S.serveDirectory S.DisableBrowsing [] (static args')
+             , S.mapServerPartT (C.unpackApp $ context {C.currTime = time}) runRoutes
+             ]
+  onException http $ do
+    tryPutMVar userMVar ()
 
               
 data CmdData = CmdData { port       :: Int
@@ -79,8 +81,8 @@ cmdData = CmdData { port = 8000 &= name "p"  &= typ "NUM" &= help "Port to bind 
 welcomeMsg :: CmdData -> IO ()
 welcomeMsg args' = do
   putStrLn "reskell starting..."
-  putStrLn $ "Port: " ++ (show $ port args')
-  putStrLn $ "Database: " ++ (database args') ++
-    ", mongoDB host: " ++ (mongohost args') ++
-    ", pool size: " ++ (show $ poolsize args')
-  putStrLn $ "static files dir: " ++ (static args')
+  putStrLn $ "Port: " ++ show (port args')
+  putStrLn $ "Database: " ++ database args' ++
+    ", mongoDB host: " ++ mongohost args' ++
+    ", pool size: " ++ show (poolsize args')
+  putStrLn $ "static files dir: " ++ static args'

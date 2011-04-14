@@ -20,7 +20,7 @@ body
 
 #header
 {
-  background-color: #4E6272;
+  background-color: #293845;
   background-image: url("../images/haskellLogo.png");
   background-repeat: no-repeat;
   background-position: 5px center;
@@ -29,6 +29,7 @@ body
   vertical-align: middle;
   margin-top: 0.5em;
   text-shadow: 1px 1px 1px #494949;
+  line-height: 1.6em;
 }
 
 #header a
@@ -47,7 +48,13 @@ h1
   font-size: 1.6em;
   font-weight:bold;
   font-family: "Adelle Basic", Verdana, sans;
-  margin-right:0.3em;
+  margin-right:0.5em;
+}
+
+#headerRight
+{
+  float: right;
+  line-height: 1.6em;
 }
 
 /* Content */
@@ -55,19 +62,18 @@ h1
 #content
 {
   padding: 0.5em;
-  background-color: #f6f6ef;
+  background-color: #f9f9f9;
 }
 
 h2
 {
   font-size: 1.3em;
-  color: #555555;
+  color: #4E6272;
 }
 
 h2 a
 {
-  text-decoration: none;
-  color: #67666b;
+  color: #4E6272;
 }
 
 .submissionDetails, .commentDetails
@@ -98,8 +104,14 @@ h2 a
   margin-left: 2em;
   margin-top:0.3em;
   min-width: 50%;
+  border-left: 1px dashed #cccccc;
+  padding-left:0.3em;
 }
 
+.comment
+{
+  margin-top:0.2em;
+}
 /* Footer */
 
 #footer
