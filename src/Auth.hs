@@ -1,6 +1,7 @@
 module Auth (
     makeSession
   , getSessionUser  
+  , expireSession
   , checkUser
   , anyUser
   ) where
@@ -21,6 +22,15 @@ import DB
 makeSession userName = do
   sessionid <- query $ newSession userName
   addCookie (MaxAge maxBound) (mkCookie sessionCookie sessionid)
+
+
+expireSession :: PageM ()
+expireSession = do
+  eitherSid <- getDataFn $ lookCookieValue sessionCookie
+  expireCookie sessionCookie
+  case eitherSid of
+    Left _ -> return ()
+    Right sessionid -> query $ deleteSession sessionid
 
 getSessionUser f = do
   eitherSid <- getDataFn $ lookCookieValue sessionCookie

@@ -51,4 +51,6 @@ dispatch r@R_Submit =
         submission <- query $ newSubmission (uName user) title content
         seeOtherURL $ R_Post (sId submission)
 
+dispatch r@(R_Logout redir) = expireSession >> seeOtherURL redir
+
 dispatch r = render $ template r ("", Nothing, [<h2> not yet implemented </h2>])

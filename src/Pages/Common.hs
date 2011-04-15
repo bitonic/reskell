@@ -76,7 +76,7 @@ template r (title, heading, content) =
                                    else <a href=(R_User (uName u))><% uName u %></a>
                                    %>
                                 <% " · " %>
-                                <a href=(R_Logout)>logout</a>
+                                <a href=(R_Logout r)>logout</a>
                                 </%>
                %>
           </div>

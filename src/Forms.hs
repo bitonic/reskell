@@ -45,17 +45,15 @@ submitForm = childErrors ++> form
     form = (`validate` validator) $ (,,)
            <$> label "Title: " ++> inputString Nothing
            <*> label "Url: " ++> inputString (Just linkBase)
-           <*> label "or message: " ++> inputTextArea (Just 13) (Just 50) Nothing
+           <*> label "or message: " ++> inputTextArea (Just 13) (Just 70) Nothing
     
     linkBase = "http://"
     validLink l = isJust $ getDomain l
     
-    xor x y = x || y && not (x && y)
-    
     validator = mconcat
                 [ check "Missing title" $ \(t, _, _) -> length t /= 0
                 , check "Insert an url or a message (not both)" $ \(_, l, m) ->
-                   validLink l `xor` not (null m)
+                   validLink l /= not (null m)
                 , check "Invalid url" $ \(_, l, _) -> case getDomain l of
                      Nothing -> l == linkBase || null l
                      Just _  -> True

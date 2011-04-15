@@ -7,6 +7,7 @@ module DB.User (
   
   , newSession
   , checkSession
+  , deleteSession
   ) where
 
 import Prelude hiding (lookup)
@@ -83,3 +84,8 @@ checkSession sessionid = do
   case (lookup "value" sessionM >>= fromBson) of
     Nothing -> return Nothing
     Just session -> getUser $ sessionUserName session
+
+
+deleteSession :: DbAccess m => String -> m ()
+deleteSession sessionid = delete $
+                          select [$(getLabel 'sessionId) =: sessionid] sessionColl
