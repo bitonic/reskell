@@ -1,29 +1,29 @@
-
+{-# OPTIONS_GHC -F -pgmFtrhsx #-}
 module Forms (
     loginForm
+  , submitForm
   ) where
 
 
 import Control.Monad           (liftM)
 import Control.Applicative     ((<$>), (<*>))
 
+import Data.Monoid             (mconcat)
 import Data.Maybe              (isJust)
 import qualified Data.ByteString.Char8 as B8
 
 import Text.Digestive.Types
-import Text.Digestive.Forms.Happstack ()
 import Text.Digestive.Validate
 import Text.Digestive.HSP.Html4
 
 import Happstack.Server        (Input)
 
+
 import Types
 import DB
-import Pages.Common
 
 
 
-import Control.Monad.Trans (liftIO)
 
 
 type AppForm = Form PageM Input [Char] [TemplateM]
@@ -37,3 +37,26 @@ loginForm = childErrors ++> form
     
     validator = checkM "Incorrect username/password" $ \(userName, password) ->
       liftM isJust (query $ checkLogin userName password)
+
+
+submitForm :: AppForm (String, String, String)
+submitForm = childErrors ++> form
+  where
+    form = (`validate` validator) $ (,,)
+           <$> label "Title: " ++> inputString Nothing
+           <*> label "Url: " ++> inputString (Just linkBase)
+           <*> label "or message: " ++> inputTextArea (Just 13) (Just 50) Nothing
+    
+    linkBase = "http://"
+    validLink l = isJust $ getDomain l
+    
+    xor x y = x || y && not (x && y)
+    
+    validator = mconcat
+                [ check "Missing title" $ \(t, _, _) -> length t /= 0
+                , check "Insert an url or a message (not both)" $ \(_, l, m) ->
+                   validLink l `xor` not (null m)
+                , check "Invalid url" $ \(_, l, _) -> case getDomain l of
+                     Nothing -> l == linkBase || null l
+                     Just _  -> True
+                ]

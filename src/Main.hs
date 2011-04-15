@@ -21,7 +21,7 @@ import Happstack.State         (waitForTermination)
 
 import qualified Types as C
 import Routes
-
+import Auth
 
 main :: IO ()
 main = do
@@ -53,9 +53,10 @@ runServer args' pool userMVar = do
                           }
       http    = S.simpleHTTP (S.nullConf { S.port = port args' }) $ do
         S.decodeBody (S.defaultBodyPolicy "/tmp/" 4096 4096 4096)
-        msum [ S.dir "static" $ S.serveDirectory S.DisableBrowsing [] (static args')
-             , S.mapServerPartT (C.unpackApp $ context {C.currTime = time}) runRoutes
-             ]
+        msum
+          [ S.dir "static" $ S.serveDirectory S.DisableBrowsing [] (static args')
+          , S.mapServerPartT (C.unpackApp $ context {C.currTime = time}) (getSessionUser runRoutes)
+          ]
   onException http $ do
     tryPutMVar userMVar ()
 

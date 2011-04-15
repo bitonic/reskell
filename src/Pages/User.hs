@@ -6,7 +6,6 @@ module Pages.User (
 
 import HSP
 
-import Types
 import Pages.Common
 
 

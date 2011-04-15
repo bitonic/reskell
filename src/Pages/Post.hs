@@ -3,6 +3,7 @@
 
 module Pages.Post (
     postPage
+  , submitPage
   ) where
 
 
@@ -140,3 +141,12 @@ postPage r (Right p) = do
      commentDetails p (Just s) :
        <div class="postText"><% cText p %></div> :
        (renderComments comments))
+
+
+
+submitPage r form = render $ template r $
+                    ( "Submit"
+                    , Just [<span>Submit</span>]
+                    , [ renderForm form r "Submit"
+                      ]
+                    )

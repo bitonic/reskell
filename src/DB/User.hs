@@ -63,7 +63,7 @@ checkLogin username password = do
 
 -------------------------------------------------------------------------------
 
-newSession :: (DbAccess m, MonadIO m) => UserName -> m ByteString
+newSession :: (DbAccess m, MonadIO m) => UserName -> m String
 newSession userName = do
   sessionid <- liftIO genSessionId
   time <- liftIO getCurrentTime
@@ -72,7 +72,7 @@ newSession userName = do
   return sessionid
 
   
-checkSession :: DbAccess m => ByteString -> m (Maybe User)
+checkSession :: DbAccess m => String -> m (Maybe User)
 checkSession sessionid = do
   time <- liftIO getCurrentTime
   sessionM <- runCommand [ "findAndModify" =: sessionColl

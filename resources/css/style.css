@@ -112,10 +112,35 @@ h2 a
 {
   margin-top:0.2em;
 }
+
+p
+{
+  margin:0.3em 0;
+}
+
 /* Footer */
 
 #footer
 {
   text-align: center;
   padding:1em;
+}
+
+
+/* Forms */
+form
+{
+  margin: 0.3em 0;
+}
+
+form input, form label, form textarea
+{
+  display: block;
+  margin: 0.3em 0;
+}
+
+form ul
+{
+  color: red;
+  font-weight: bold;
 }

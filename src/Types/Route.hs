@@ -32,6 +32,7 @@ data Route = R_Listing PostListing PostSort
            | R_Comment PostId
            | R_User UserName
            | R_Login Route
+           | R_Logout
            | R_Register Route
            | R_Static [String]
            deriving (Read, Show, Eq, Ord, Typeable, Data)
@@ -47,6 +48,7 @@ instance PathInfo Route where
   toPathSegments (R_Comment id')        = ["comment", show id']
   toPathSegments (R_User username)      = ["user", username]
   toPathSegments (R_Login route)        = "login" : toPathSegments route
+  toPathSegments  R_Logout              = ["logout"]
   toPathSegments (R_Register route)     = "register" : toPathSegments route
   toPathSegments (R_Static segs)        = "static" : segs
     
@@ -68,13 +70,15 @@ instance PathInfo Route where
          , do segment "comment"
               liftM R_Comment (anySegment >>= readM)
          , do segment "user"
-              liftM R_User (anySegment >>= readM)
+              liftM R_User anySegment
          , do segment "login"
               route <- option home fromPathSegments
               return $ R_Login route
          , do segment "register"
               route <- option home fromPathSegments
               return $ R_Register route
+         , do segment "logout"
+              return R_Logout
          ]
     
   

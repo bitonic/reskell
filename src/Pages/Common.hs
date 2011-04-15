@@ -15,13 +15,7 @@ module Pages.Common (
 import Happstack.Server
 
 import HSP
-import HSP.ServerPartT         ()
 import qualified HSX.XMLGenerator as HSX
-
-import Happstack.Server.HSP.HTML ()
-
-import Web.Routes.XMLGenT      ()
-import Web.Routes.Happstack    ()
 
 import Types
 
@@ -49,11 +43,6 @@ template r (title, heading, content) =
         <div id="header">
           <h1><a href=(R_Listing Links New)>Reskell</a></h1>
           
-          <% case r of
-               R_Listing Submissions _ -> <span>all</span>
-               _ -> <a href=(home)>all</a>
-             %>
-          <% " · " %>
           <% case r of
                R_Listing Asks _ -> <span>ask</span>
                _ -> <a href=(R_Listing Asks Top)>ask</a>
@@ -86,6 +75,8 @@ template r (title, heading, content) =
                                    then <span><% uName u %></span>
                                    else <a href=(R_User (uName u))><% uName u %></a>
                                    %>
+                                <% " · " %>
+                                <a href=(R_Logout)>logout</a>
                                 </%>
                %>
           </div>

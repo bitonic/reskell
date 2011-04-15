@@ -14,12 +14,12 @@ module Types.User (
 
 import Control.Monad.Reader
 
-import Data.Bson               
+import Data.Bson
 import Data.Bson.Mapping
 import Data.Data               (Data, Typeable)
+import Data.Time.Clock         (UTCTime)
 import Data.ByteString         (ByteString)
 import qualified Data.ByteString.Char8 as B8
-import Data.Time.Clock         (UTCTime)
 
 
 import Crypto.PasswordStore
@@ -27,14 +27,11 @@ import Crypto.PasswordStore
 import Numeric                 (showHex)
 
 
-
-
 instance Val ByteString where
-  val     = val . Binary
+  val = val . Binary
   cast' b = case cast' b of
     Just (Binary bs) -> Just bs
-    Nothing          -> Nothing
-
+    Nothing -> Nothing
 
 
 data UserRank = Member | Admin
@@ -57,7 +54,7 @@ $(deriveBson ''User)
 sessionCookie :: String
 sessionCookie = "session"
 
-data Session = Session { sessionId       :: ByteString
+data Session = Session { sessionId       :: String
                        , sessionUserName :: UserName
                        , sessionTime     :: UTCTime
                        }
@@ -65,10 +62,8 @@ data Session = Session { sessionId       :: ByteString
 $(deriveBson ''Session)
 
 
-genSessionId :: IO ByteString
+genSessionId :: IO String
 genSessionId = do
-  oid <- liftM oid2bs genObjectId
-  salt <- liftM exportSalt genSaltIO
-  return $ B8.concat [oid, salt]
-  where
-    oid2bs (Oid a b) = B8.pack . showHex a . showHex b $ ""
+  (Oid a b) <- genObjectId
+  salt <- liftM (B8.unpack . exportSalt) genSaltIO
+  return (showHex a . showHex b $ salt)

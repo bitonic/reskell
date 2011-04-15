@@ -37,6 +37,13 @@ import HSP                     (XMLGenT)
 import qualified HSX.XMLGenerator as HSX
 
 
+-- instances
+import Happstack.Server.HSP.HTML ()
+import Web.Routes.XMLGenT      ()
+import Web.Routes.Happstack    ()
+import HSP.ServerPartT         ()
+import Text.Digestive.Forms.Happstack ()
+
 import Types.User
 import Types.Route
 

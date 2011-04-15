@@ -25,4 +25,4 @@ query q = do
   let pool = connPool cx
       db   = database cx
   r <- access safe Master pool $ use db (push (\_ -> db) q)
-  either databaseError return r
+  either databaseError return r  

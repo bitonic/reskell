@@ -37,4 +37,18 @@ dispatch r@(R_Login redir) = do
       makeSession userName
       seeOtherURL redir
 
+dispatch r@R_Submit =
+  checkUser r anyUser $ \user -> do
+    resp <- eitherHappstackForm submitForm "submitForm"
+    case resp of
+      Left form -> submitPage r form
+      Right (title, link, ask) -> do
+        content <- if null ask
+                   then case getDomain link of
+                     Nothing -> serverError "Received invalid url from the submit form."
+                     Just d  -> return $ Link link d
+                   else return $ Ask ask
+        submission <- query $ newSubmission (uName user) title content
+        seeOtherURL $ R_Post (sId submission)
+
 dispatch r = render $ template r ("", Nothing, [<h2> not yet implemented </h2>])
