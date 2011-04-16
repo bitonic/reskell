@@ -61,8 +61,8 @@ newSubmission username title content = do
   return submission
 
 newComment :: (MonadIO m, DbAccess m, Post a)
-              => UserName -> String -> Submission -> a -> m Comment
-newComment username text submission parent = do
+              => UserName -> String -> PostId -> a -> m Comment
+newComment username text submissionid parent = do
   time <- liftIO getCurrentTime
   id' <- incPostCounter
   let comment = Comment { cId         = id'
@@ -71,7 +71,7 @@ newComment username text submission parent = do
                         , cText       = text
                         , cVotes      = 0
                         , cParent     = pId parent
-                        , cSubmission = sId submission
+                        , cSubmission = submissionid
                         }
   insert_ postColl $ toBson comment
   return comment
@@ -93,6 +93,7 @@ getPost id' = do
 
 getPosts :: (Bson a, DbAccess m) => Query -> m [a]
 getPosts q = find q >>= rest >>= mapM fromBson
+
 
 getLinks, getAsks :: DbAccess m => Limit -> Word32 -> m [Submission]
 getLinks l s =

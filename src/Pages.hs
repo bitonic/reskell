@@ -27,7 +27,22 @@ import Auth
 
 dispatch :: Route -> PageM Response
 
-dispatch r@(R_Post id') = query (getPost id') >>= maybe notFoundError (postPage r)
+dispatch r@(R_Post id') = do
+  post <- query (getPost id') >>= \postM -> case postM of
+    Nothing -> notFoundError
+    Just p  -> return p
+  resp <- eitherHappstackForm commentForm "commentForm"
+  case resp of
+    Left form -> do
+      userM <- askContext sessionUser
+      case userM of
+        Nothing -> postPage r [] post
+        Just u  -> postPage r [renderForm form r "Comment"] post
+    Right comment -> checkUser r anyUser $ \user -> do
+      case post of
+        Left s -> query $ newComment (uName user) comment (sId s) s
+        Right c -> query $ newComment (uName user) comment (cSubmission c) c
+      seeOtherURL r
 
 dispatch r@(R_Login redir) = do
   resp <- eitherHappstackForm loginForm "loginForm"

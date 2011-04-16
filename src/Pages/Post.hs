@@ -7,6 +7,7 @@ module Pages.Post (
   ) where
 
 
+import Control.Monad.Trans     (liftIO)
 import Data.Time.Clock
 
 import HSP
@@ -46,12 +47,14 @@ showTimeDiff t1 t2 | diff < min'  = " just now"
       where s | n > 1 = "s "
               | otherwise = " "    
 
-whenPosted :: (Post a, MonadContext m) => a -> m String
-whenPosted p = do
-  now <- askContext currTime
-  return $ (show $ pVotes p) ++ " points by " ++
-           (pUserName p) ++ (showTimeDiff now $ pTime p)
-
+whenPosted p =
+  <%>
+    <% show (pVotes p) %> points by 
+    <a href=(R_User $ pUserName p)><% pUserName p %></a>
+    <% do now <- liftIO getCurrentTime
+          <%><% showTimeDiff now $ pTime p %></%>
+       %>
+    </%>
 
 renderComment :: Comment -> TemplateM
 renderComment comment = do
@@ -64,21 +67,21 @@ renderComment comment = do
 
     <% if null comments
        then []
-       else [<div class="comments">
-               <% map renderComment comments %>
-               </div>]
+       else [<% renderComments comments %>]
        %>
     </div>
 
-renderComments :: [Comment] -> [TemplateM]
-renderComments = map renderComment
+renderComments :: [Comment] -> TemplateM
+renderComments cs = <div class="comments"><% map renderComment cs %></div >
 
-submissionDetails :: Submission -> TemplateM
-submissionDetails s = do
-  posted <- whenPosted s
+submissionDetails :: Submission -> Bool -> TemplateM
+submissionDetails s listing =  
   <div class="submissionDetails">
-    <% posted %> | <a href=(R_Post (sId s))> 
-    <% comments 0 %> </a>
+    <% whenPosted s %>
+    <% if listing
+       then [separator, <a href=(R_Post (sId s))><% comments 0 %></a>]
+       else []
+       %>
     </div>
   where
     comments 0 = "discuss"
@@ -86,10 +89,9 @@ submissionDetails s = do
     comments n = show n ++ " comment"
 
 commentDetails :: Comment -> Maybe Submission -> TemplateM
-commentDetails c sM = do
-  posted <- whenPosted c
+commentDetails c sM =
   <div class="commentDetails">
-    <% posted %> |
+    <% whenPosted c %> |
     <a href=(R_Post (cId c))>link</a>
     <%
       case sM of
@@ -110,8 +112,8 @@ truncateText :: String -> Int -> String
 truncateText t n | length t < n = t 
                  | otherwise    = take n t ++ "..."
 
-postPage :: Route -> Either Submission Comment -> PageM Response
-postPage r (Left p) = do
+postPage :: Route -> [TemplateM] -> Either Submission Comment -> PageM Response
+postPage r form (Left p) = do
   comments <- query $ getComments p
   render $ template r (title, Just titleLink, content comments)
   where
@@ -123,27 +125,28 @@ postPage r (Left p) = do
                  , <span class="linkDomain"> (<% d %>)</span>
                  ]
     
-    content comments = submissionDetails p : text ++ form ++ (renderComments comments)
+    content comments = submissionDetails p False : text ++
+                       form ++ [renderComments comments]
 
     text = case sContent p of
       Ask t -> [<div class="postText"><% t %></div>]
       _     -> []
 
-    form = []
-
         
-postPage r (Right p) = do
+postPage r form (Right p) = do
   sM <- query $ getSubmission (cSubmission p)
   s <- maybe (serverError "Could not find comment's submission in the db.") return sM
   comments <- query $ getComments p
   render $ template r $
-    (truncateText (cText p) 200, Nothing,
-     commentDetails p (Just s) :
-       <div class="postText"><% cText p %></div> :
-       (renderComments comments))
+    ( truncateText (cText p) 200
+    , Nothing
+    , commentDetails p (Just s) : <div class="postText"><% cText p %></div> :
+       form ++ [renderComments comments]
+    )
 
 
 
+submitPage :: Route -> [TemplateM] -> PageM Response
 submitPage r form = render $ template r $
                     ( "Submit"
                     , Just [<span>Submit</span>]

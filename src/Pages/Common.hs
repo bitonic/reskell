@@ -7,6 +7,7 @@ module Pages.Common (
   , TemplateM
   , render
   , renderForm
+  , separator
 --, e404
 --, e500
   ) where
@@ -41,18 +42,18 @@ template r (title, heading, content) =
       
       <body>
         <div id="header">
-          <h1><a href=(R_Listing Links New)>Reskell</a></h1>
+          <h1><a href=(home)>Reskell</a></h1>
           
           <% case r of
                R_Listing Asks _ -> <span>ask</span>
                _ -> <a href=(R_Listing Asks Top)>ask</a>
              %>
-          <% " · " %>
+          <% separator %>
           <% case r of
                R_Listing Links _ -> <span>links</span>
                _ -> <a href=(R_Listing Links Top)>links</a>
              %>
-          <% " · " %>
+          <% separator %>
           <% case r of
                R_Submit -> <span>submit</span>
                _ -> <a href=(R_Submit)>submit</a>
@@ -65,7 +66,7 @@ template r (title, heading, content) =
                                       R_Register _ -> <span>register</span>
                                       _ -> <a href=(R_Register r)>register</a>
                                     %>
-                                 <% " · " %>
+                                 <% separator %>
                                  <% case r of
                                      R_Login _ -> <span>login</span>
                                      _ -> <a href=(R_Login r)>login</a>
@@ -105,6 +106,8 @@ renderForm form action submit =
     <input type="submit" value=submit />
   </form>
 
+separator :: TemplateM
+separator = <span><% " · " %></span>
 
 {-
 e404 :: PageM Response

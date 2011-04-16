@@ -9,8 +9,6 @@ module Auth (
 
 import Control.Monad.Reader    (local)
 
-import qualified Data.ByteString.Char8 as B8
-
 import Happstack.Server
 
 import Web.Routes.Happstack

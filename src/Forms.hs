@@ -2,6 +2,7 @@
 module Forms (
     loginForm
   , submitForm
+  , commentForm
   ) where
 
 
@@ -58,3 +59,6 @@ submitForm = childErrors ++> form
                      Nothing -> l == linkBase || null l
                      Just _  -> True
                 ]
+
+commentForm :: AppForm String
+commentForm = childErrors ++> inputTextArea (Just 12) (Just 70) Nothing

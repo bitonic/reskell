@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts, ExistentialQuantification #-}
 
 module Types.App (
     AppM
@@ -15,6 +15,11 @@ module Types.App (
   , Context (..)
   , MonadContext (..)
   , askContext
+    
+  -- ** Stuff that's often useful  
+  , MonadError
+  , MonadIO
+  , ReaderT
   ) where
 
 
@@ -29,7 +34,7 @@ import Data.Time.Clock         (UTCTime)
 
 import Happstack.Server hiding (Host)
 
-import Database.MongoDB        (Database (..), ConnPool, Host, Failure)
+import Database.MongoDB        (Database (..), ConnPool, Failure, Service)
 
 import Web.Routes              (RouteT)
 
@@ -48,13 +53,13 @@ import Types.User
 import Types.Route
 
 
-data Context = Context { database    :: Database
-                       , connPool    :: ConnPool Host
-                       , sessionUser :: Maybe User
-                       , currTime    :: UTCTime
-                         
-                       , userMVar    :: MVar ()
-                       }
+data Context = forall s. Service s => Context { database    :: Database
+                                        , connPool    :: ConnPool s
+                                        , sessionUser :: Maybe User
+                                        , currTime    :: UTCTime
+                                                
+                                        , userMVar    :: MVar ()
+                                        }
 
 
 data AppError = DatabaseError Failure
