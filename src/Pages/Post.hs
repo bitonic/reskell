@@ -53,23 +53,24 @@ whenPosted p =
     <a href=(R_User $ pUserName p)><% pUserName p %></a>
     <% do now <- liftIO getCurrentTime
           <%><% showTimeDiff now $ pTime p %></%>
-       %>
-    </%>
+    %>
+  </%>
 
 renderComment :: Comment -> TemplateM
 renderComment comment = do
-  comments <- query $ getComments comment
-  <div class="comment">
-    <% commentDetails comment Nothing %>
-    <div class="postText">
-      <% cText comment %>
-    </div>
+  { comments <- query $ getComments comment
+  ; <div class="comment">
+      <% commentDetails comment Nothing %>
+      <div class="postText">
+        <% cText comment %>
+      </div>
 
-    <% if null comments
-       then []
-       else [<% renderComments comments %>]
-       %>
+      <% if null comments
+         then []
+         else [<% renderComments comments %>]
+      %>
     </div>
+  }
 
 renderComments :: [Comment] -> TemplateM
 renderComments cs = <div class="comments"><% map renderComment cs %></div >
@@ -81,8 +82,8 @@ submissionDetails s listing =
     <% if listing
        then [separator, <a href=(R_Post (sId s))><% comments 0 %></a>]
        else []
-       %>
-    </div>
+    %>
+  </div>
   where
     comments 0 = "discuss"
     comments 1 = "1 comment"
@@ -99,14 +100,16 @@ commentDetails c sM =
         Just s  -> [do
           submissionURL <- showURL $ R_Post (sId s)
           if sId s == cParent c
-            then <%> | on: <a href=submissionURL>
-                     <% sTitle s %></a> </%>
-            else do
-              <%> | <a href=(R_Post (cParent c))>parent</a> |
+            then <%>
+                   | on: <a href=submissionURL>
+                   <% sTitle s %></a>
+                 </%>
+            else <%>
+                   | <a href=(R_Post (cParent c))>parent</a> |
                    on: <a href=submissionURL><% sTitle s %></a>
-                  </%>]
+                 </%>]
     %>
-    </div>
+  </div>
 
 truncateText :: String -> Int -> String
 truncateText t n | length t < n = t 

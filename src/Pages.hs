@@ -5,10 +5,8 @@ module Pages (
 
 
 import HSP
-import HSP.ServerPartT         ()
 
 import Happstack.Server
-import Happstack.Server.HSP.HTML ()
 
 import Text.Digestive.Forms.Happstack
 
