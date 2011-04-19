@@ -27,7 +27,7 @@ data PostSort = New | Top
 
 data Route = R_Listing PostListing PostSort
            | R_Post PostId
-           | R_Vote PostId Bool
+           | R_Vote PostId Bool Route
            | R_Submit
            | R_Comment PostId
            | R_User UserName
@@ -43,7 +43,8 @@ home = R_Listing Submissions Top
 instance PathInfo Route where
   toPathSegments (R_Listing list psort) = ["listing", show list, show psort]
   toPathSegments (R_Post id')           = ["post", show id']
-  toPathSegments (R_Vote id' up)        = ["vote", show id', show up]
+  toPathSegments (R_Vote id' up route)  = "vote" : show id' : show up :
+                                          toPathSegments route
   toPathSegments  R_Submit              = ["submit"]
   toPathSegments (R_Comment id')        = ["comment", show id']
   toPathSegments (R_User username)      = ["user", username]
@@ -65,7 +66,8 @@ instance PathInfo Route where
          , do segment "vote"
               id' <- anySegment >>= readM
               up <- anySegment >>= readM
-              return $ R_Vote id' up
+              route <- option home fromPathSegments
+              return $ R_Vote id' up route
          , segment "submit" >> return R_Submit
          , do segment "comment"
               liftM R_Comment (anySegment >>= readM)

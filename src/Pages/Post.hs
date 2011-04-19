@@ -49,8 +49,7 @@ showTimeDiff t1 t2 | diff < min'  = " just now"
 
 whenPosted p =
   <%>
-    <% show (pVotes p) %> points by 
-    <a href=(R_User $ pUserName p)><% pUserName p %></a>
+    posted by <a href=(R_User $ pUserName p)><% pUserName p %></a>
     <% do now <- liftIO getCurrentTime
           <%><% showTimeDiff now $ pTime p %></%>
     %>
@@ -119,6 +118,7 @@ truncateText t n | length t < n = t
 postPage :: Route -> [TemplateM] -> Either Submission Comment -> PageM Response
 postPage r form (Left p) = do
   comments <- query $ getComments p
+  query $ voteSubmission p
   render $ template r (title, Just titleLink, content comments)
   where
     title = sTitle p

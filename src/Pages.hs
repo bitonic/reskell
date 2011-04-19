@@ -66,4 +66,8 @@ dispatch r@R_Submit =
 
 dispatch (R_Logout redir) = expireSession >> seeOtherURL redir
 
+dispatch (R_Vote id' up redir) = do
+  postM <- query $ getPost id'
+  maybe notFoundError ((>> seeOtherURL redir) . query . (`votePost` up)) postM
+  
 dispatch r = render $ template r ("", Nothing, [<h2> not yet implemented </h2>])

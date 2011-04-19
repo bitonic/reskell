@@ -29,7 +29,7 @@ main = do
   welcomeMsg args'
   
   let db = M.Database (M.u $ database args')
-  pool <- M.newConnPool 1 (M.host $ mongohost args')
+  pool <- M.newConnPool (poolsize args') (M.host $ mongohost args')
   sstart <- query' pool db  $ initScoring
   
   bracket (forkIO $ runServer args' pool db sstart) killThread $ \_ -> do

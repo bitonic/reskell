@@ -105,6 +105,9 @@ unpackApp context = unpackContext . unpackError
 class Monad m => MonadContext m where
   getContext :: m Context
 
+instance Monad m => MonadContext (ReaderT Context m) where
+  getContext = ask
+
 instance MonadContext (ServerPartT (ErrorT AppError (ReaderT Context IO))) where
   getContext = ask
   

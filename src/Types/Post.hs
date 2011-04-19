@@ -31,7 +31,6 @@ class (Bson a, Typeable a) => Post a where
   pId       :: a -> PostId
   pTime     :: a -> UTCTime
   pUserName :: a -> UserName
-  pVotes    :: a -> Int
   
 
 data SContent = Ask String  
@@ -68,7 +67,7 @@ data Submission = Submission { sId       :: PostId
                              , sTitle    :: String
                              , sContent  :: SContent
                              , sVotes    :: Int
-                             , sScore    :: Float
+                             , sScore    :: Double
                              }
                 deriving (Eq, Ord, Show, Read, Data, Typeable)
 
@@ -80,10 +79,11 @@ data Comment = Comment { cId         :: PostId
                        , cUserName   :: String
                        , cTime       :: UTCTime
                        , cText       :: String
-                       , cVotes      :: Int
+                       , cUpVotes    :: Int
+                       , cDownVotes  :: Int
                        , cParent     :: Int
                        , cSubmission :: Int
-                       , cScore      :: Float
+                       , cScore      :: Double
                        }
              deriving (Eq, Ord, Show, Read, Data, Typeable)
 
@@ -93,10 +93,8 @@ instance Post Submission where
   pId       = sId
   pTime     = sTime
   pUserName = sUserName
-  pVotes    = sVotes
 
 instance Post Comment where
   pId       = cId
   pTime     = cTime
   pUserName = cUserName
-  pVotes    = cVotes
