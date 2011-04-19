@@ -29,13 +29,13 @@ dispatch r@(R_Post id') = do
   post <- query (getPost id') >>= \postM -> case postM of
     Nothing -> notFoundError
     Just p  -> return p
-  resp <- eitherHappstackForm commentForm "commentForm"
-  case resp of
+  resp' <- eitherHappstackForm commentForm "commentForm"
+  case resp' of
     Left form -> do
       userM <- askContext sessionUser
       case userM of
         Nothing -> postPage r [] post
-        Just u  -> postPage r [renderForm form r "Comment"] post
+        Just _  -> postPage r [renderForm form r "Comment"] post
     Right comment -> checkUser r anyUser $ \user -> do
       case post of
         Left s -> query $ newComment (uName user) comment (sId s) s
@@ -43,8 +43,8 @@ dispatch r@(R_Post id') = do
       seeOtherURL r
 
 dispatch r@(R_Login redir) = do
-  resp <- eitherHappstackForm loginForm "loginForm"
-  case resp of
+  resp' <- eitherHappstackForm loginForm "loginForm"
+  case resp' of
     Left form -> loginPage r form
     Right (userName, _) -> do
       makeSession userName
@@ -52,8 +52,8 @@ dispatch r@(R_Login redir) = do
 
 dispatch r@R_Submit =
   checkUser r anyUser $ \user -> do
-    resp <- eitherHappstackForm submitForm "submitForm"
-    case resp of
+    resp' <- eitherHappstackForm submitForm "submitForm"
+    case resp' of
       Left form -> submitPage r form
       Right (title, link, ask) -> do
         content <- if null ask
@@ -64,6 +64,6 @@ dispatch r@R_Submit =
         submission <- query $ newSubmission (uName user) title content
         seeOtherURL $ R_Post (sId submission)
 
-dispatch r@(R_Logout redir) = expireSession >> seeOtherURL redir
+dispatch (R_Logout redir) = expireSession >> seeOtherURL redir
 
 dispatch r = render $ template r ("", Nothing, [<h2> not yet implemented </h2>])

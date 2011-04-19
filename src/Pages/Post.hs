@@ -76,14 +76,16 @@ renderComments :: [Comment] -> TemplateM
 renderComments cs = <div class="comments"><% map renderComment cs %></div >
 
 submissionDetails :: Submission -> Bool -> TemplateM
-submissionDetails s listing =  
-  <div class="submissionDetails">
-    <% whenPosted s %>
-    <% if listing
-       then [separator, <a href=(R_Post (sId s))><% comments 0 %></a>]
-       else []
-    %>
-  </div>
+submissionDetails s listing = do
+  { commentsN <- query $ countComments s
+  ; <div class="submissionDetails">
+      <% whenPosted s %>
+      <% if listing
+         then [separator, <a href=(R_Post (sId s))><% comments commentsN %></a>]
+         else []
+      %>
+    </div>
+  }
   where
     comments 0 = "discuss"
     comments 1 = "1 comment"
@@ -92,22 +94,21 @@ submissionDetails s listing =
 commentDetails :: Comment -> Maybe Submission -> TemplateM
 commentDetails c sM =
   <div class="commentDetails">
-    <% whenPosted c %> |
+    <% whenPosted c %><% separator %>
     <a href=(R_Post (cId c))>link</a>
-    <%
-      case sM of
-        Nothing -> []
-        Just s  -> [do
-          submissionURL <- showURL $ R_Post (sId s)
-          if sId s == cParent c
-            then <%>
-                   | on: <a href=submissionURL>
-                   <% sTitle s %></a>
-                 </%>
-            else <%>
-                   | <a href=(R_Post (cParent c))>parent</a> |
-                   on: <a href=submissionURL><% sTitle s %></a>
-                 </%>]
+    <% case sM of
+         Nothing -> []
+         Just s  -> return $ do
+           submissionURL <- showURL $ R_Post (sId s)
+           if sId s == cParent c
+             then <%>
+                    <% separator %>on: <a href=submissionURL>
+                    <% sTitle s %></a>
+                  </%>
+             else <%>
+                    <% separator %><a href=(R_Post (cParent c))>parent</a>
+                    <% separator %>on: <a href=submissionURL><% sTitle s %></a>
+                  </%>
     %>
   </div>
 

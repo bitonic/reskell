@@ -28,7 +28,6 @@ module Types.App (
 import Control.Monad.Trans
 import Control.Monad.Reader
 import Control.Monad.Error
-import Control.Monad.MVar
 
 import Data.Time.Clock         (UTCTime)
 
@@ -53,12 +52,10 @@ import Types.User
 import Types.Route
 
 
-data Context = forall s. Service s => Context { database    :: Database
-                                        , connPool    :: ConnPool s
-                                        , sessionUser :: Maybe User
-                                        , currTime    :: UTCTime
-                                                
-                                        , userMVar    :: MVar ()
+data Context = forall s. Service s => Context { database     :: Database
+                                        , connPool     :: ConnPool s
+                                        , sessionUser  :: Maybe User
+                                        , scoringStart :: UTCTime
                                         }
 
 

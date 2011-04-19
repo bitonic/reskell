@@ -61,4 +61,4 @@ submitForm = childErrors ++> form
                 ]
 
 commentForm :: AppForm String
-commentForm = childErrors ++> inputTextArea (Just 12) (Just 70) Nothing
+commentForm = childErrors ++> inputTextArea (Just 8) (Just 70) Nothing

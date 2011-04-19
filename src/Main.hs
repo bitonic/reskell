@@ -3,16 +3,14 @@
 module Main where
 
 import System.Console.CmdArgs
-import System.Environment      (getProgName)
 import System.Log.Logger       (Priority (..), logM)
 
 import Control.Concurrent      (forkIO, killThread)
-import Control.Exception       (bracket, onException)
+import Control.Exception       (bracket)
 import Control.Monad           (msum)
 import Control.Monad.Trans     (liftIO)
-import Control.Concurrent.MVar
 
-import Data.Time.Clock         (getCurrentTime)
+import Data.Time.Clock         (getCurrentTime, UTCTime)
 
 import qualified Database.MongoDB as M
 
@@ -20,45 +18,38 @@ import qualified Happstack.Server as S
 import Happstack.State         (waitForTermination)
 
 import qualified Types as C
+import DB
 import Routes
 import Auth
 
 main :: IO ()
 main = do
-  progName <- getProgName
-  
   args' <- cmdArgs cmdData
   
   welcomeMsg args'
   
+  let db = M.Database (M.u $ database args')
   pool <- M.newConnPool 1 (M.host $ mongohost args')
+  sstart <- query' pool db  $ initScoring
   
-  -- Prepare the various mvars
-  userMVar <- newEmptyMVar
-  
-  bracket (forkIO $ runServer args' pool userMVar) killThread $ \_ -> do
+  bracket (forkIO $ runServer args' pool db sstart) killThread $ \_ -> do
     logM "Happstack.Server" NOTICE "System running, press 'e <ENTER>' or Ctrl-C to stop server"
     waitForTermination
 
 
-runServer :: CmdData -> M.ConnPool M.Host -> MVar () -> IO ()
-runServer args' pool userMVar = do
+runServer :: CmdData -> M.ConnPool M.Host -> M.Database -> UTCTime -> IO ()
+runServer args' pool db sstart = do
   time <- liftIO getCurrentTime
-  let context = C.Context { C.database    = M.Database (M.u $ database args')
-                          , C.connPool    = pool 
-                          , C.sessionUser = Nothing
-                          , C.currTime    = time
-                                            
-                          , C.userMVar    = userMVar
+  let context = C.Context { C.database     = db
+                          , C.connPool     = pool 
+                          , C.sessionUser  = Nothing
+                          , C.scoringStart = sstart
                           }
-      http    = S.simpleHTTP (S.nullConf { S.port = port args' }) $ do
-        S.decodeBody (S.defaultBodyPolicy "/tmp/" 4096 4096 4096)
-        msum
-          [ S.dir "static" $ S.serveDirectory S.DisableBrowsing [] (static args')
-          , S.mapServerPartT (C.unpackApp $ context {C.currTime = time}) (getSessionUser runRoutes)
-          ]
-  onException http $ do
-    tryPutMVar userMVar ()
+  S.simpleHTTP (S.nullConf { S.port = port args' }) $ do
+    S.decodeBody (S.defaultBodyPolicy "/tmp/" 4096 4096 4096)
+    msum [ S.dir "static" $ S.serveDirectory S.DisableBrowsing [] (static args')
+         , S.mapServerPartT (C.unpackApp context) (getSessionUser runRoutes)
+         ]
 
               
 data CmdData = CmdData { port       :: Int

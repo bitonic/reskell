@@ -41,6 +41,7 @@ module Data.Bson.Mapping (
   , getLabel
   , getConsDoc
   , subDocument
+  , getField
   ) where
 
 import Prelude hiding (lookup)
@@ -218,3 +219,6 @@ subDocument lab doc = [append lab (cons '.' l) := v | (l := v) <- doc]
 
 getLabel :: Name -> Q Exp
 getLabel n = [| u (nameBase n) |]
+
+getField :: Name -> Q Exp
+getField n = [| \d -> $(getLabel n) =: $(varE n) d |]
