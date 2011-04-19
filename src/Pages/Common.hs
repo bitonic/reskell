@@ -91,9 +91,8 @@ renderForm form action submit =
     <input type="submit" value=submit />
   </form>
 
-separator :: TemplateM
-{-# INLINE separator #-}
-separator = <span><% " · " %></span>
+separator :: String
+separator = " · "
 
 {-
 e404 :: PageM Response

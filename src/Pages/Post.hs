@@ -80,7 +80,9 @@ submissionDetails s listing = do
   ; <div class="submissionDetails">
       <% whenPosted s %>
       <% if listing
-         then [separator, <a href=(R_Post (sId s))><% comments commentsN %></a>]
+         then [ <span><% separator %></span>
+              , <a href=(R_Post (sId s))><% comments commentsN %></a>
+              ]
          else []
       %>
     </div>

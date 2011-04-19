@@ -8,9 +8,8 @@ import System.Log.Logger       (Priority (..), logM)
 import Control.Concurrent      (forkIO, killThread)
 import Control.Exception       (bracket)
 import Control.Monad           (msum)
-import Control.Monad.Trans     (liftIO)
 
-import Data.Time.Clock         (getCurrentTime, UTCTime)
+import Data.Time.Clock         (UTCTime)
 
 import qualified Database.MongoDB as M
 
@@ -40,7 +39,6 @@ main = withLogger $ do
 
 runServer :: CmdData -> M.ConnPool M.Host -> M.Database -> UTCTime -> IO ()
 runServer args' pool db sstart = do
-  time <- liftIO getCurrentTime
   let context = C.Context { C.database     = db
                           , C.connPool     = pool 
                           , C.sessionUser  = Nothing

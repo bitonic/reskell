@@ -25,6 +25,10 @@ import Auth
 
 dispatch :: Route -> PageM Response
 
+dispatch r =
+  render $ template r ("", Nothing, [<h2> not yet implemented </h2>])
+  
+
 dispatch r@(R_Post id') = do
   post <- query (getPost id') >>= \postM -> case postM of
     Nothing -> notFoundError
