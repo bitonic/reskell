@@ -44,40 +44,25 @@ template r (title, heading, content) =
         <div id="header">
           <h1><a href=(home)>Reskell</a></h1>
           
-          <% case r of
-               R_Listing Asks _ -> <span>ask</span>
-               _ -> <a href=(R_Listing Asks Top)>ask</a>
-          %>
+          <a href=(R_Listing Asks Top)>ask</a>
           <% separator %>
-          <% case r of
-               R_Listing Links _ -> <span>links</span>
-               _ -> <a href=(R_Listing Links Top)>links</a>
-          %>
+          <a href=(R_Listing Links Top)>links</a>
           <% separator %>
-          <% case r of
-               R_Submit -> <span>submit</span>
-               _ -> <a href=(R_Submit)>submit</a>
-          %>
+          <a href=(R_Submit)>submit</a>
+
 
           <div id="headerRight">
             <% do user <- askContext sessionUser
                   case user of
-                    Nothing -> <%><% case r of
-                                      R_Register _ -> <span>register</span>
-                                      _ -> <a href=(R_Register r)>register</a>
-                                 %>
-                                 <% separator %>
-                                 <% case r of
-                                     R_Login _ -> <span>login</span>
-                                     _ -> <a href=(R_Login r)>login</a>
-                                 %>
+                    Nothing -> <%>
+                                <a href=(R_Register r)>register</a>
+                                <% separator %>
+                                <a href=(R_Login r)>login</a>
                               </%>
-                    Just u -> <%><% if r == (R_User (uName u))
-                                   then <span><% uName u %></span>
-                                   else <a href=(R_User (uName u))><% uName u %></a>
-                                %>
-                                <% " · " %>
-                                <a href=(R_Logout r)>logout</a>
+                    Just u -> <%>
+                               <a href=(R_User (uName u))><% uName u %></a>
+                               <% separator %>
+                               <a href=(R_Logout r)>logout</a>
                              </%>
             %>
           </div>
@@ -107,6 +92,7 @@ renderForm form action submit =
   </form>
 
 separator :: TemplateM
+{-# INLINE separator #-}
 separator = <span><% " · " %></span>
 
 {-

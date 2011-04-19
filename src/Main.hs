@@ -21,9 +21,10 @@ import qualified Types as C
 import DB
 import Routes
 import Auth
+import Logger
 
 main :: IO ()
-main = do
+main = withLogger $ do
   args' <- cmdArgs cmdData
   
   welcomeMsg args'
@@ -73,7 +74,6 @@ cmdData = CmdData { port = 8000 &= name "p"  &= typ "NUM" &= help "Port to bind 
 welcomeMsg :: CmdData -> IO ()
 welcomeMsg args' = do
   putStrLn "reskell starting..."
-  putStrLn $ "Port: " ++ show (port args')
   putStrLn $ "Database: " ++ database args' ++
     ", mongoDB host: " ++ mongohost args' ++
     ", pool size: " ++ show (poolsize args')
