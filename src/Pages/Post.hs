@@ -47,6 +47,8 @@ showTimeDiff t1 t2 | diff < min'  = " just now"
       where s | n > 1 = "s "
               | otherwise = " "    
 
+
+whenPosted :: Post a => a -> GenChildList PageM
 whenPosted p =
   <%>
     posted by <a href=(R_User $ pUserName p)><% pUserName p %></a>

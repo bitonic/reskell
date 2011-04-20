@@ -16,8 +16,6 @@ import qualified Data.ByteString.Lazy.Char8 as B8
 
 import Control.Monad
 
-import Text.ParserCombinators.Parsec (option)
-
 import Web.Routes
 
 import Happstack.Server
@@ -96,6 +94,7 @@ readM s | length res > 0 = return $ (fst . head) res
     res = reads s
 
 
+redirQuery :: String
 redirQuery = "redir"
              
 routeRedirect :: (ServerMonad m, ShowURL m, URL m ~ Route) => URL m -> m Link

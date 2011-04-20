@@ -26,7 +26,7 @@ import Types
 
 
 render :: PageM XML -> PageM Response
-render = (=<<) (ok . toResponse) 
+render = (ok . toResponse =<<)
 
 template :: (String, Maybe [TemplateM], [TemplateM])
             -> PageM (HSX.XML PageM)
@@ -98,6 +98,7 @@ renderForm form submit = do
       <input type="submit" value=submit />
     </form>
   }
+
 
 separator :: String
 separator = " · "

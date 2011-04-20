@@ -11,6 +11,7 @@ module Types.Post (
   ) where
 
 import Control.Monad.Reader
+import Control.Monad.Identity  (Identity)
 
 import Data.Bson.Mapping
 import Data.Data               (Data, Typeable)
@@ -39,8 +40,10 @@ data SContent = Ask String
 $(deriveBson ''SContent)
 
 
+parseProtocol :: ParsecT String u Identity String
 parseProtocol = string "http://" <|> string "https://"
 
+parseDomain :: ParsecT String u Identity String
 parseDomain = do
   parseProtocol
   d1 <- liftM ('.' :) domainLetters

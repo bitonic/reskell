@@ -18,4 +18,6 @@ siteSpec = setDefault home
                 , parsePathSegments  = parseSegments fromPathSegments
                 }
 
+
+runRoutes :: AppM Response
 runRoutes = implSite "/" "" siteSpec
