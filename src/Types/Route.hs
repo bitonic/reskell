@@ -1,14 +1,18 @@
-{-# Language DeriveDataTypeable #-}
+{-# Language DeriveDataTypeable, TypeFamilies #-}
 
 module Types.Route (
     PostListing (..)
   , PostSort (..)
   , Route (..)
   , home
+  , routeRedirect
+  , getRedirect
   ) where
 
 
 import Data.Data                     (Data, Typeable)
+import Data.Maybe                    (fromMaybe)
+import qualified Data.ByteString.Lazy.Char8 as B8
 
 import Control.Monad
 
@@ -16,8 +20,12 @@ import Text.ParserCombinators.Parsec (option)
 
 import Web.Routes
 
+import Happstack.Server
+
 import Types.User
 import Types.Post
+
+
 
 data PostListing = Asks | Links | Submissions | Comments
                  deriving (Read, Show, Eq, Ord, Typeable, Data)
@@ -27,13 +35,13 @@ data PostSort = New | Top
 
 data Route = R_Listing PostListing PostSort
            | R_Post PostId
-           | R_Vote PostId Bool Route
+           | R_Vote PostId Bool
            | R_Submit
            | R_Comment PostId
            | R_User UserName
-           | R_Login Route
-           | R_Logout Route
-           | R_Register Route
+           | R_Login
+           | R_Logout
+           | R_Register
            | R_Static [String]
            deriving (Read, Show, Eq, Ord, Typeable, Data)
 
@@ -43,14 +51,13 @@ home = R_Listing Submissions Top
 instance PathInfo Route where
   toPathSegments (R_Listing list psort) = ["listing", show list, show psort]
   toPathSegments (R_Post id')           = ["post", show id']
-  toPathSegments (R_Vote id' up route)  = "vote" : show id' : show up :
-                                          toPathSegments route
+  toPathSegments (R_Vote id' up)        = ["vote", show id', show up]
   toPathSegments  R_Submit              = ["submit"]
   toPathSegments (R_Comment id')        = ["comment", show id']
   toPathSegments (R_User username)      = ["user", username]
-  toPathSegments (R_Login route)        = "login" : toPathSegments route
-  toPathSegments (R_Logout route)       = "logout" : toPathSegments route
-  toPathSegments (R_Register route)     = "register" : toPathSegments route
+  toPathSegments  R_Login               = ["login"]
+  toPathSegments  R_Logout              = ["logout"]
+  toPathSegments  R_Register            = ["register"]
   toPathSegments (R_Static segs)        = "static" : segs
     
   -- Note that the "static" is left out on purpose, since we sould
@@ -66,22 +73,18 @@ instance PathInfo Route where
          , do segment "vote"
               id' <- anySegment >>= readM
               up <- anySegment >>= readM
-              route <- option home fromPathSegments
-              return $ R_Vote id' up route
+              return $ R_Vote id' up
          , segment "submit" >> return R_Submit
          , do segment "comment"
               liftM R_Comment (anySegment >>= readM)
          , do segment "user"
               liftM R_User anySegment
          , do segment "login"
-              route <- option home fromPathSegments
-              return $ R_Login route
+              return R_Login
          , do segment "logout"
-              route <- option home fromPathSegments
-              return $ R_Logout route
+              return R_Logout
          , do segment "register"
-              route <- option home fromPathSegments
-              return $ R_Register route
+              return R_Register
          ]
     
   
@@ -91,3 +94,21 @@ readM s | length res > 0 = return $ (fst . head) res
         | otherwise      = fail "Could not parse."
   where
     res = reads s
+
+
+redirQuery = "redir"
+             
+routeRedirect :: (ServerMonad m, ShowURL m, URL m ~ Route) => URL m -> m Link
+routeRedirect r = do
+  uri <- liftM rqUri askRq
+  showURLParams r [(redirQuery, uri)]
+
+
+
+getRedirect :: (ServerMonad m, ShowURL m, URL m ~ Route) => m Link
+getRedirect = do
+  query <- liftM rqInputsQuery askRq
+  homeURL <- showURL home
+  return $ fromMaybe homeURL $ do
+    i <- lookup redirQuery query
+    liftM B8.unpack $ either (const Nothing) Just (inputValue i)

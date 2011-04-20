@@ -61,13 +61,14 @@ getDomain url = case parse parseDomain "" url of
   Left _  -> Nothing
 
 
-data Submission = Submission { sId       :: PostId
-                             , sUserName :: UserName
-                             , sTime     :: UTCTime
-                             , sTitle    :: String
-                             , sContent  :: SContent
-                             , sVotes    :: Int
-                             , sScore    :: Double
+data Submission = Submission { sId        :: PostId
+                             , sUserName  :: UserName
+                             , sTime      :: UTCTime
+                             , sTitle     :: String
+                             , sContent   :: SContent
+                             , sVotesUp   :: Int
+                             , sVotesDown :: Int
+                             , sScore     :: Double
                              }
                 deriving (Eq, Ord, Show, Read, Data, Typeable)
 
@@ -79,8 +80,8 @@ data Comment = Comment { cId         :: PostId
                        , cUserName   :: String
                        , cTime       :: UTCTime
                        , cText       :: String
-                       , cUpVotes    :: Int
-                       , cDownVotes  :: Int
+                       , cVotesUp    :: Int
+                       , cVotesDown  :: Int
                        , cParent     :: Int
                        , cSubmission :: Int
                        , cScore      :: Double

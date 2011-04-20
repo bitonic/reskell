@@ -70,13 +70,14 @@ newSubmission :: (MonadIO m, DbAccess m, MonadContext m)
 newSubmission username title content = do
   time <- liftIO getCurrentTime
   id' <- incPostCounter
-  let submission = Submission { sId       = id'
-                              , sUserName = username
-                              , sTime     = time
-                              , sTitle    = title
-                              , sContent  = content
-                              , sVotes    = 0
-                              , sScore    = 0
+  let submission = Submission { sId        = id'
+                              , sUserName  = username
+                              , sTime      = time
+                              , sTitle     = title
+                              , sContent   = content
+                              , sVotesUp   = 0
+                              , sVotesDown = 0
+                              , sScore     = 0
                               }
   score <- scoreSubmission submission
   insert_ postColl $ toBson $ submission {sScore = score}
@@ -91,8 +92,8 @@ newComment username text submissionid parent = do
                         , cTime       = time
                         , cUserName   = username
                         , cText       = text
-                        , cUpVotes    = 0
-                        , cDownVotes  = 0
+                        , cVotesUp    = 0
+                        , cVotesDown  = 0
                         , cParent     = pId parent
                         , cSubmission = submissionid
                         , cScore      = 0
@@ -119,19 +120,28 @@ getPosts :: (Bson a, DbAccess m) => Query -> m [a]
 getPosts q = find q >>= rest >>= mapM fromBson
 
 
-getLinks, getAsks :: DbAccess m => Limit -> Word32 -> m [Submission]
-getLinks l s =
+getLinks, getAsks :: DbAccess m => Limit -> Word32 -> PostSort -> m [Submission]
+getLinks l s sort' =
   getPosts (select (subDocument $(getLabel 'sContent) $(getConsDoc 'Link))
             postColl) { limit = l
                       , skip = s 
-                      , sort = [ $(getLabel 'sContent) =: (-1 :: Int) ]
-                      }  
-getAsks l s =
+                      , sort = [sortField]
+                      }
+  where
+    sortField = case sort' of
+      New -> $(getLabel 'sTime) =: (-1 :: Int)
+      Top -> $(getLabel 'sScore) =: (-1 :: Int)
+
+getAsks l s sort' =
   getPosts (select (subDocument $(getLabel 'sContent) $(getConsDoc 'Ask))
             postColl) { limit = l
                       , skip = s
-                      , sort = [ $(getLabel 'sContent) =: (-1 :: Int) ]
+                      , sort = [sortField]
                       }
+  where
+    sortField = case sort' of
+      New -> $(getLabel 'cTime) =: (-1 :: Int)
+      Top -> $(getLabel 'cScore) =: (-1 :: Int)
 
 getComments :: (DbAccess m, Post a) => a -> m [Comment]
 getComments p = getPosts (select [$(getLabel 'cParent) =: pId p] postColl)
@@ -145,7 +155,7 @@ scoreSubmission :: (MonadContext m, DbAccess m) => Submission -> m Double
 scoreSubmission submission = do
   start <- askContext scoringStart
   let fi      = fromInteger . toInteger
-      s       = sVotes submission
+      s       = sVotesUp submission - sVotesDown submission
       order   = logBase 10 $ max (fi $ abs s) 1
       sign    | s > 0     = 1
               | s < 0     = -1
@@ -162,20 +172,21 @@ scoreComment comment =
   then 0
   else phat+z*z/(2*n)-z*(sqrt ((phat*(1-phat)+z*z/(4*n))/n))/(1+z*z/n)
   where
-    pos  = realToFrac $ cUpVotes comment
-    n    = pos + (realToFrac $ cDownVotes comment)
+    pos  = realToFrac $ cVotesUp comment
+    n    = pos + (realToFrac $ cVotesDown comment)
     phat = pos / n
     z    = 1.644853646608357 -- 95% confidence, Statistics2.pnormaldist(1-0.2/2)
     
-  
-                                   
-voteSubmission :: (MonadContext m, DbAccess m) => Submission -> m ()
-voteSubmission s = do
+
+voteSubmission :: (MonadContext m, DbAccess m) => Submission -> Bool -> m ()
+voteSubmission s up = do
+  let update | up        = $(getLabel 'sVotesUp)
+             | otherwise = $(getLabel 'sVotesDown)
   s' <- runCommand
         [ "findAndModify" =: postColl
         , "query"         =: [$(getField 'sId) s]
         , "new"           =: True
-        , "update"        =: ["$inc" =: [$(getLabel 'sVotes) =: (1 :: Int)]]
+        , "update"        =: ["$inc" =: [update =: (1 :: Int)]]
         ] >>= lookup "value" >>= fromBson
   score <- scoreSubmission s'
   -- Note that I select the post based on the id *and* the number of
@@ -183,16 +194,19 @@ voteSubmission s = do
   -- post is in the same state that we received it. In this way we
   -- avoid race conditions.
   runCommand [ "findAndModify" =: postColl
-             , "query"         =: [$(getField 'sId) s', $(getField 'sVotes) s']
-             , "update"        =: ["$set" =: [$(getLabel 'sScore) := (Float score)]]
+             , "query"         =: [ $(getField 'sId) s'
+                                  , $(getField 'sVotesUp) s'
+                                  , $(getField 'sVotesDown) s'
+                                  ]
+             , "update"        =: ["$set" =: [$(getLabel 'sScore) =: score]]
              ]
   return ()
 
 
 voteComment :: DbAccess m => Comment -> Bool -> m ()
 voteComment c up = do
-  let update | up        = $(getLabel 'cUpVotes)
-             | otherwise = $(getLabel 'cDownVotes)
+  let update | up        = $(getLabel 'cVotesUp)
+             | otherwise = $(getLabel 'cVotesDown)
   c' <- runCommand
         [ "findAndModify" =: postColl
         , "query"         =: [$(getField 'cId) c]
@@ -202,13 +216,13 @@ voteComment c up = do
   let score = scoreComment c'
   runCommand [ "findAndModify" =: postColl
              , "query"         =: [ $(getField 'cId) c'
-                                  , $(getField 'cUpVotes) c'
-                                  , $(getField 'cDownVotes) c'
+                                  , $(getField 'cVotesUp) c'
+                                  , $(getField 'cVotesDown) c'
                                   ]
-             , "update"        =: ["$set" =: [$(getLabel 'cScore) := (Float score)]]
+             , "update"        =: ["$set" =: [$(getLabel 'cScore) =: score]]
              ]
   return ()
 
 votePost :: (DbAccess m, MonadContext m) => (Either Submission Comment) -> Bool -> m ()
-votePost (Left s) _   = voteSubmission s
-votePost (Right c) up = voteComment c up
+votePost (Left s)  = voteSubmission s
+votePost (Right c) = voteComment c

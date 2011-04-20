@@ -15,6 +15,7 @@ import Web.Routes.Happstack
 
 import Types
 import DB
+import Pages.Common
 
 
 makeSession userName = do
@@ -38,11 +39,11 @@ getSessionUser f = do
       user <- query $ checkSession sessionid
       local (\ctx -> ctx {sessionUser = user}) f
   
--- checkUser :: Route -> (User -> Bool) -> (User -> PageM Response) -> PageM Response
-checkUser route checkf act = do
+-- checkUser :: (User -> Bool) -> (User -> PageM Response) -> PageM Response
+checkUser checkf act = do
   userM <- askContext sessionUser
   case userM of
-    Nothing -> seeOtherURL (R_Login route)
+    Nothing -> routeRedirect R_Login >>= seeOther'
     Just user -> if checkf user
                  then act user
                  else forbiddenError

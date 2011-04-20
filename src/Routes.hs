@@ -13,7 +13,7 @@ import Pages
 
 siteSpec :: Site Route (AppM Response)
 siteSpec = setDefault home
-           Site { handleSite = \f u -> unRouteT (dispatch u) f
+           Site { handleSite = \f u -> unRouteT (getRedirect >>= dispatch u) f
                 , formatPathSegments = \u -> (toPathSegments u, [])
                 , parsePathSegments  = parseSegments fromPathSegments
                 }

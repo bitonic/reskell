@@ -13,8 +13,8 @@ import Pages.Common
 
 
 
-loginPage :: Route -> [TemplateM] -> PageM Response
-loginPage r form = render $ template r ( "Login"
-                                       , Just [<span>Login</span>]
-                                       , [renderForm form r "Submit"]
-                                       )
+loginPage :: [TemplateM] -> PageM Response
+loginPage form = render $ template ( "Login"
+                                   , Just [<span>Login</span>]
+                                   , [renderForm form "Submit"]
+                                   )

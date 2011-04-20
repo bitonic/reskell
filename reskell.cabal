@@ -14,7 +14,7 @@ source-repository head
   location:  git://github.com/rostayob/reskell
   branch:    master
 
-executable hsnews
+executable reskell
   hs-source-dirs:    src
   main-is:           Main.hs
 

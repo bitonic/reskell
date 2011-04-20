@@ -117,11 +117,10 @@ truncateText :: String -> Int -> String
 truncateText t n | length t < n = t 
                  | otherwise    = take n t ++ "..."
 
-postPage :: Route -> [TemplateM] -> Either Submission Comment -> PageM Response
-postPage r form (Left p) = do
+postPage :: [TemplateM] -> Either Submission Comment -> PageM Response
+postPage form (Left p) = do
   comments <- query $ getComments p
-  query $ voteSubmission p
-  render $ template r (title, Just titleLink, content comments)
+  render $ template (title, Just titleLink, content comments)
   where
     title = sTitle p
 
@@ -139,11 +138,11 @@ postPage r form (Left p) = do
       _     -> []
 
         
-postPage r form (Right p) = do
+postPage form (Right p) = do
   sM <- query $ getSubmission (cSubmission p)
   s <- maybe (serverError "Could not find comment's submission in the db.") return sM
   comments <- query $ getComments p
-  render $ template r $
+  render $ template $
     ( truncateText (cText p) 200
     , Nothing
     , commentDetails p (Just s) : <div class="postText"><% cText p %></div> :
@@ -152,10 +151,10 @@ postPage r form (Right p) = do
 
 
 
-submitPage :: Route -> [TemplateM] -> PageM Response
-submitPage r form = render $ template r $
-                    ( "Submit"
-                    , Just [<span>Submit</span>]
-                    , [ renderForm form r "Submit"
-                      ]
-                    )
+submitPage :: [TemplateM] -> PageM Response
+submitPage form = render $ template $
+                  ( "Submit"
+                  , Just [<span>Submit</span>]
+                  , [ renderForm form "Submit"
+                    ]
+                  )

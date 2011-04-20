@@ -47,6 +47,9 @@ import Web.Routes.XMLGenT      ()
 import Web.Routes.Happstack    ()
 import HSP.ServerPartT         ()
 import Text.Digestive.Forms.Happstack ()
+import Happstack.Server.HSX    ()
+
+
 
 import Types.User
 import Types.Route

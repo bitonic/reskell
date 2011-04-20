@@ -8,14 +8,18 @@ module Pages.Common (
   , render
   , renderForm
   , separator
+  , seeOther'
 --, e404
 --, e500
   ) where
 
 
-import Happstack.Server
+import Control.Monad           (liftM)
 
-import HSP
+import Happstack.Server
+import Happstack.Server.SURI   (ToSURI)
+
+import HSP hiding (Request)
 import qualified HSX.XMLGenerator as HSX
 
 import Types
@@ -24,10 +28,9 @@ import Types
 render :: PageM XML -> PageM Response
 render = (=<<) (ok . toResponse) 
 
-template :: Route
-            -> (String, Maybe [TemplateM], [TemplateM])
+template :: (String, Maybe [TemplateM], [TemplateM])
             -> PageM (HSX.XML PageM)
-template r (title, heading, content) =
+template (title, heading, content) =
   unXMLGenT $
     <html>
       
@@ -53,16 +56,19 @@ template r (title, heading, content) =
 
           <div id="headerRight">
             <% do user <- askContext sessionUser
+                  register <- routeRedirect R_Register
+                  login <- routeRedirect R_Login
+                  logout <- routeRedirect R_Logout
                   case user of
                     Nothing -> <%>
-                                <a href=(R_Register r)>register</a>
+                                <a href=register>register</a>
                                 <% separator %>
-                                <a href=(R_Login r)>login</a>
+                                <a href=login>login</a>
                               </%>
                     Just u -> <%>
                                <a href=(R_User (uName u))><% uName u %></a>
                                <% separator %>
-                               <a href=(R_Logout r)>logout</a>
+                               <a href=logout>logout</a>
                              </%>
             %>
           </div>
@@ -84,15 +90,22 @@ template r (title, heading, content) =
     </html>
 
 
-renderForm :: [TemplateM] -> Route -> String -> TemplateM
-renderForm form action submit =
-  <form method="POST" enctype="multipart/form-data" action=action>
-    <% form %>
-    <input type="submit" value=submit />
-  </form>
+renderForm :: [TemplateM] -> String -> TemplateM
+renderForm form submit = do
+  { Request {rqUri = uri, rqQuery = query} <- askRq 
+  ; <form method="POST" enctype="multipart/form-data" action=(uri ++ query)>
+      <% form %>
+      <input type="submit" value=submit />
+    </form>
+  }
 
 separator :: String
 separator = " · "
+
+
+seeOther' :: (ToSURI uri, FilterMonad Response m) => uri -> m Response
+seeOther' uri = liftM toResponse (seeOther uri "")
+
 
 {-
 e404 :: PageM Response
