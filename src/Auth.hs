@@ -18,6 +18,9 @@ import DB
 import Pages.Common
 
 
+
+-- | Calls the DB query that puts the 'Session' in the db, and put the
+-- session id in a cookie.
 makeSession ::
   ( MonadContext m
   , FilterMonad Response m
@@ -30,6 +33,8 @@ makeSession userName = do
   addCookie (MaxAge maxBound) (mkCookie sessionCookie sessionid)
 
 
+-- | The opposite of makeSession, remove the 'Session' from the DB and
+-- expire the cookie. If the cookie is not there, does nothing.
 expireSession :: PageM ()
 expireSession = do
   eitherSid <- getDataFn $ lookCookieValue sessionCookie
@@ -39,6 +44,9 @@ expireSession = do
     Right sessionid -> query $ deleteSession sessionid
 
 
+-- | Function to call at the very beginning. Checks if theres a cookie
+-- with a valid session id. If there is, gets the 'User' and puts it
+-- in the 'Session' stored in the 'ReaderT'.
 getSessionUser :: AppM a -> AppM a
 getSessionUser f = do
   eitherSid <- getDataFn $ lookCookieValue sessionCookie
@@ -49,6 +57,11 @@ getSessionUser f = do
       local (\ctx -> ctx {sessionUser = user}) f
   
 
+-- | Barrier to restrict some pages to certain users. Takes an
+-- authorization function, and a function that generates a response
+-- given the user.
+-- If the user is not there, redirects to the login page.      
+-- If it's there but it has no permission, gives a 403 error.
 checkUser :: (User -> Bool) -> (User -> PageM Response) -> PageM Response
 checkUser checkf act = do
   userM <- askContext sessionUser

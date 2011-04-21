@@ -1,22 +1,25 @@
-{-# Language DeriveDataTypeable, TypeFamilies #-}
+{-# Language DeriveDataTypeable, TypeFamilies, FlexibleContexts #-}
 
 module Types.Route (
-    PostListing (..)
+    Submissions (..)
   , PostSort (..)
   , Route (..)
+  , PageNumber
   , home
   , routeRedirect
-  , getRedirect
+  , redirectPage
   ) where
 
 
 import Data.Data                     (Data, Typeable)
-import Data.Maybe                    (fromMaybe)
-import qualified Data.ByteString.Lazy.Char8 as B8
+import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Word                     (Word32)
 
 import Control.Monad
 
 import Web.Routes
+import Web.Routes.Happstack
 
 import Happstack.Server
 
@@ -25,13 +28,16 @@ import Types.Post
 
 
 
-data PostListing = Asks | Links | Submissions | Comments
+data Submissions = Asks | Links | Submissions
                  deriving (Read, Show, Eq, Ord, Typeable, Data)
 
 data PostSort = New | Top
               deriving (Read, Show, Eq, Ord, Typeable, Data)
 
-data Route = R_Listing PostListing PostSort
+type PageNumber = Word32
+
+data Route = R_Submissions Submissions PostSort PageNumber
+           | R_Comments PostSort PageNumber
            | R_Post PostId
            | R_Vote PostId Bool
            | R_Submit
@@ -44,37 +50,45 @@ data Route = R_Listing PostListing PostSort
            deriving (Read, Show, Eq, Ord, Typeable, Data)
 
 home :: Route
-home = R_Listing Submissions Top
+home = R_Submissions Submissions Top 0
 
 instance PathInfo Route where
-  toPathSegments (R_Listing list psort) = ["listing", show list, show psort]
-  toPathSegments (R_Post id')           = ["post", show id']
-  toPathSegments (R_Vote id' up)        = ["vote", show id', show up]
-  toPathSegments  R_Submit              = ["submit"]
-  toPathSegments (R_Comment id')        = ["comment", show id']
-  toPathSegments (R_User username)      = ["user", username]
-  toPathSegments  R_Login               = ["login"]
-  toPathSegments  R_Logout              = ["logout"]
-  toPathSegments  R_Register            = ["register"]
-  toPathSegments (R_Static segs)        = "static" : segs
+  toPathSegments (R_Submissions submissions psort page) =
+    ["submissions", show submissions, show psort, show page]
+  toPathSegments (R_Comments psort page) =
+    ["comments", show psort, show page]
+  toPathSegments (R_Post id')      = ["post", show id']
+  toPathSegments (R_Vote id' up)   = ["vote", show id', show up]
+  toPathSegments  R_Submit         = ["submit"]
+  toPathSegments (R_Comment id')   = ["comment", show id']
+  toPathSegments (R_User username) = ["user", username]
+  toPathSegments  R_Login          = ["login"]
+  toPathSegments  R_Logout         = ["logout"]
+  toPathSegments  R_Register       = ["register"]
+  toPathSegments (R_Static segs)   = "static" : segs
     
   -- Note that the "static" is left out on purpose, since we sould
   -- serve static files with fileServe before trying to dispatch the
   -- url.
   fromPathSegments =
-    msum [ do segment "listing"
-              list <- anySegment >>= readM
-              psort <- anySegment >>= readM
-              return $ R_Listing list psort
+    msum [ do segment "submissions"
+              list <- readSegment
+              psort <- readSegment
+              page <- readSegment
+              return $ R_Submissions list psort page
+         , do segment "comments"
+              psort <- readSegment
+              page <- readSegment
+              return $ R_Comments psort page
          , do segment "post"
-              liftM R_Post (anySegment >>= readM)
+              liftM R_Post readSegment
          , do segment "vote"
-              id' <- anySegment >>= readM
-              up <- anySegment >>= readM
+              id' <- readSegment
+              up <- readSegment
               return $ R_Vote id' up
          , segment "submit" >> return R_Submit
          , do segment "comment"
-              liftM R_Comment (anySegment >>= readM)
+              liftM R_Comment readSegment
          , do segment "user"
               liftM R_User anySegment
          , do segment "login"
@@ -87,16 +101,20 @@ instance PathInfo Route where
     
   
 
-readM :: (Read a, Monad m) => String -> m a
-readM s | length res > 0 = return $ (fst . head) res
-        | otherwise      = fail "Could not parse."
-  where
-    res = reads s
+readSegment :: Read a => URLParser a
+readSegment = anySegment >>= readM
+  where readM s | length res > 0 = return $ (fst . head) res
+                | otherwise      = fail "Could not parse."
+          where res = reads s
 
 
 redirQuery :: String
 redirQuery = "redir"
-             
+
+
+-- | Appends the "redir" query to some Route. This should be used when
+-- we have to "remember" a redirect, for example when using a form
+-- (e.g. the login form).
 routeRedirect :: (ServerMonad m, ShowURL m, URL m ~ Route) => URL m -> m Link
 routeRedirect r = do
   uri <- liftM rqUri askRq
@@ -104,10 +122,25 @@ routeRedirect r = do
 
 
 
-getRedirect :: (ServerMonad m, ShowURL m, URL m ~ Route) => m Link
-getRedirect = do
-  query <- liftM rqInputsQuery askRq
-  homeURL <- showURL home
-  return $ fromMaybe homeURL $ do
+-- | Redirects the page, with this criteria:
+-- If the query "redir" is present, redirect there
+-- If a referer is present, redirect there
+-- Otherwise, go to the home.
+redirectPage ::
+  ( ServerMonad m
+  , FilterMonad Response m
+  , ShowURL m
+  , URL m ~ Route
+  ) => m Response
+redirectPage = do
+  qRedir <- liftM rqInputsQuery askRq >>= \query -> return $ do
     i <- lookup redirQuery query
-    liftM B8.unpack $ either (const Nothing) Just (inputValue i)
+    either (const Nothing) Just (inputValue i)
+  rRedir <- liftM (getHeader "Referer") askRq
+  case qRedir of
+    Just redir -> seeOther' $ BL.unpack redir
+    Nothing -> case rRedir of
+      Just redir -> seeOther' $ B.unpack redir
+      Nothing -> seeOtherURL home
+  where
+    seeOther' uri = liftM toResponse (seeOther uri "")

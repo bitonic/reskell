@@ -1,3 +1,5 @@
+-- Code almost unchanged from the guestbook example.
+
 module Logger (
     LoggerHandle
   , setupLogger
@@ -8,9 +10,9 @@ module Logger (
 import Control.Exception.Extensible (bracket)
 
 import System.Log.Logger
-import System.Log.Handler (close)
+import System.Log.Handler      (close)
 import System.Log.Handler.Simple (GenericHandler, fileHandler, streamHandler)
-import System.IO (stdout, Handle)
+import System.IO               (stdout, Handle)
 
 -- | Opaque type covering all information needed to teardown the logger.
 data LoggerHandle = LoggerHandle { rootLogHandler   :: GenericHandler Handle

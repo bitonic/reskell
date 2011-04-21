@@ -4,6 +4,7 @@
 module Pages.Post (
     postPage
   , submitPage
+  , submissionsPage
   ) where
 
 
@@ -119,19 +120,18 @@ truncateText :: String -> Int -> String
 truncateText t n | length t < n = t 
                  | otherwise    = take n t ++ "..."
 
+submissionLink :: Submission -> [TemplateM]
+submissionLink s = case sContent s of
+  Ask _    -> [<a href=(R_Post (sId s))> <% sTitle s %> </a>]
+  Link l d -> [ <a href=l><% sTitle s %></a>
+             , <span class="linkDomain"> (<% d %>)</span>
+             ]
+
 postPage :: [TemplateM] -> Either Submission Comment -> PageM Response
 postPage form (Left p) = do
   comments <- query $ getComments p
-  render $ template (title, Just titleLink, content comments)
+  render $ template (sTitle p, Just (submissionLink p), content comments)
   where
-    title = sTitle p
-
-    titleLink = case sContent p of
-      Ask _    -> [<a href=(R_Post (sId p))> <% title %> </a>]
-      Link l d -> [ <a href=l><% title %></a>
-                 , <span class="linkDomain"> (<% d %>)</span>
-                 ]
-    
     content comments = submissionDetails p False : text ++
                        form ++ [renderComments comments]
 
@@ -160,3 +160,13 @@ submitPage form = render $ template $
                   , [ renderForm form "Submit"
                     ]
                   )
+
+
+submissionsPage :: Submissions -> PostSort -> PageNumber -> PageM Response
+submissionsPage submissions psort page = do
+  posts <- query $ getSubmissions submissions psort postsPerPage (postsPerPage * page)
+  render $ template $
+    ( show submissions ++ " " ++ show psort
+    , Nothing
+    , map (\s -> <div><h2><% submissionLink s %></h2><% submissionDetails s True %></div>) posts
+    )

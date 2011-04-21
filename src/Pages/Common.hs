@@ -9,6 +9,7 @@ module Pages.Common (
   , renderForm
   , separator
   , seeOther'
+  , postsPerPage
 --, e404
 --, e500
   ) where
@@ -35,21 +36,24 @@ template (title, heading, content) =
     <html>
       
       <head>
+
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 
         <link href=(R_Static ["css", "reset.css"]) media="screen" rel="stylesheet" type="text/css" />
         <link href=(R_Static ["css", "style.css"]) media="screen" rel="stylesheet" type="text/css" />
 
         <title> <% "Reskell - " ++ title %> </title>
+
       </head>
       
       <body>
+
         <div id="header">
           <h1><a href=(home)>Reskell</a></h1>
           
-          <a href=(R_Listing Asks Top)>ask</a>
+          <a href=(R_Submissions Asks Top 0)>ask</a>
           <% separator %>
-          <a href=(R_Listing Links Top)>links</a>
+          <a href=(R_Submissions Links Top 0)>links</a>
           <% separator %>
           <a href=(R_Submit)>submit</a>
 
@@ -58,7 +62,6 @@ template (title, heading, content) =
             <% do user <- askContext sessionUser
                   register <- routeRedirect R_Register
                   login <- routeRedirect R_Login
-                  logout <- routeRedirect R_Logout
                   case user of
                     Nothing -> <%>
                                 <a href=register>register</a>
@@ -68,7 +71,7 @@ template (title, heading, content) =
                     Just u -> <%>
                                <a href=(R_User (uName u))><% uName u %></a>
                                <% separator %>
-                               <a href=logout>logout</a>
+                               <a href=(R_Logout)>logout</a>
                              </%>
             %>
           </div>
@@ -85,6 +88,7 @@ template (title, heading, content) =
         <div id="footer">
           rostayob industries.
         </div>
+
       </body>
       
     </html>
@@ -106,6 +110,9 @@ separator = " · "
 
 seeOther' :: (ToSURI uri, FilterMonad Response m) => uri -> m Response
 seeOther' uri = liftM toResponse (seeOther uri "")
+
+postsPerPage :: PageNumber
+postsPerPage = 50
 
 
 {-

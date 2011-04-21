@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
+
 module Pages ( 
     dispatch
   ) where
@@ -23,9 +24,9 @@ import Auth
 
 
 
-dispatch :: Route -> String -> PageM Response
+dispatch :: Route -> PageM Response
 
-dispatch (R_Post id') _ = do
+dispatch (R_Post id') = do
   post <- query (getPost id') >>= \postM -> case postM of
     Nothing -> notFoundError
     Just p  -> return p
@@ -42,15 +43,15 @@ dispatch (R_Post id') _ = do
         Right c -> query $ newComment (uName user) comment (cSubmission c) c
       seeOtherURL (R_Post id')
 
-dispatch R_Login redir = do
+dispatch R_Login = do
   resp' <- eitherHappstackForm loginForm "loginForm"
   case resp' of
     Left form -> loginPage form
     Right (userName, _) -> do
       makeSession userName
-      seeOther' redir
+      redirectPage
 
-dispatch R_Submit _ =
+dispatch R_Submit =
   checkUser anyUser $ \user -> do
     resp' <- eitherHappstackForm submitForm "submitForm"
     case resp' of
@@ -64,10 +65,13 @@ dispatch R_Submit _ =
         submission <- query $ newSubmission (uName user) title content
         seeOtherURL $ R_Post (sId submission)
 
-dispatch R_Logout redir = expireSession >> seeOther' redir
+dispatch R_Logout = expireSession >> redirectPage
 
-dispatch (R_Vote id' up) redir = do
+dispatch (R_Vote id' up) = do
   postM <- query $ getPost id'
-  maybe notFoundError ((>> seeOther' redir) . query . (`votePost` up)) postM
+  maybe notFoundError ((>> redirectPage) . query . (`votePost` up)) postM
+
+dispatch (R_Submissions submissions psort page) =
+  submissionsPage submissions psort page
   
-dispatch _ _ = render $ template ("", Nothing, [<h2> not yet implemented </h2>])
+dispatch _ = render $ template ("", Nothing, [<h2> not yet implemented </h2>])

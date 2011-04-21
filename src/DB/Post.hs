@@ -8,8 +8,7 @@ module DB.Post (
   , getSubmission
   , getComment
   , getPost
-  , getLinks
-  , getAsks
+  , getSubmissions
   , getComments
   , countComments
   , voteSubmission
@@ -55,6 +54,7 @@ initScoring = do
     Just s -> lookup "time" s
   
 
+-- | Increments the post counter atomically.
 incPostCounter :: DbAccess m => m PostId
 incPostCounter =
   runCommand [ "findAndModify" =: postColl
@@ -63,7 +63,7 @@ incPostCounter =
              , "update"        =: ["$inc" =: ["counter" =: (1 :: PostId)]]
              , "upsert"        =: True
              ] >>= lookup "value" >>= lookup "counter"
-  
+
 
 newSubmission :: (MonadIO m, DbAccess m, MonadContext m)
                  => UserName -> String -> SContent -> m Submission
@@ -119,32 +119,28 @@ getPost id' = do
 getPosts :: (Bson a, DbAccess m) => Query -> m [a]
 getPosts q = find q >>= rest >>= mapM fromBson
 
-
-getLinks, getAsks :: DbAccess m => Limit -> Word32 -> PostSort -> m [Submission]
-getLinks l s sort' =
-  getPosts (select (subDocument $(getLabel 'sContent) $(getConsDoc 'Link))
-            postColl) { limit = l
-                      , skip = s 
-                      , sort = [sortField]
-                      }
+                  
+getSubmissions :: DbAccess m
+                  => Submissions -> PostSort -> Limit -> Word32 -> m [Submission]
+getSubmissions listing psort l s =
+  getPosts (select (selectField listing) postColl)
+    { limit = l
+    , skip  = s
+    , sort  = [sortField psort, $(getLabel 'sTime) =: (-1 :: Int)]
+    }
   where
-    sortField = case sort' of
-      New -> $(getLabel 'sTime) =: (-1 :: Int)
-      Top -> $(getLabel 'sScore) =: (-1 :: Int)
+    sortField New = $(getLabel 'sTime) =: (-1 :: Int)
+    sortField Top = $(getLabel 'sScore) =: (-1 :: Int)
+    
+    selectField Asks = subDocument $(getLabel 'sContent) $(getConsDoc 'Ask)
+    selectField Links = subDocument $(getLabel 'sContent) $(getConsDoc 'Link)
+    selectField Submissions = $(getConsDoc 'Submission)
 
-getAsks l s sort' =
-  getPosts (select (subDocument $(getLabel 'sContent) $(getConsDoc 'Ask))
-            postColl) { limit = l
-                      , skip = s
-                      , sort = [sortField]
-                      }
-  where
-    sortField = case sort' of
-      New -> $(getLabel 'cTime) =: (-1 :: Int)
-      Top -> $(getLabel 'cScore) =: (-1 :: Int)
 
 getComments :: (DbAccess m, Post a) => a -> m [Comment]
 getComments p = getPosts (select [$(getLabel 'cParent) =: pId p] postColl)
+                  {sort = [ $(getLabel 'cScore) =: (-1 :: Int)
+                          , $(getLabel 'cTime) =: (-1 :: Int)]}
 
 countComments :: (DbAccess m, Post a) => a -> m Int
 countComments p = count (select [$(getLabel 'cParent) =: pId p] postColl)
