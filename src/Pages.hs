@@ -67,9 +67,10 @@ dispatch R_Submit =
 
 dispatch R_Logout = expireSession >> redirectPage
 
-dispatch (R_Vote id' up) = do
-  postM <- query $ getPost id'
-  maybe notFoundError ((>> redirectPage) . query . (`votePost` up)) postM
+dispatch (R_Vote id' up) =
+  checkUser anyUser $ \user -> do
+    postM <- query $ getPost id'
+    maybe notFoundError ((>> redirectPage) . query . (\p -> votePost p up user)) postM
 
 dispatch (R_Submissions submissions psort page) =
   submissionsPage submissions psort page

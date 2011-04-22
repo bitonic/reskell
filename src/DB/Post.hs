@@ -177,17 +177,27 @@ scoreComment comment =
     z    = 1.644853646608357 -- 95% confidence, Statistics2.pnormaldist(1-0.2/2)
     
 
-voteSubmission :: (MonadContext m, DbAccess m) => Submission -> Bool -> m ()
-voteSubmission s up = do
+voteSubmission :: (MonadContext m, DbAccess m)
+                  => Submission -> Bool -> User -> m ()
+voteSubmission s up user = do
   let update | up        = $(getLabel 'sVotesUp)
              | otherwise = $(getLabel 'sVotesDown)
-  s' <- findAndModify FindAndModify { famSelector = select [$(getField 'sId) s] postColl
-                                   , famSort     = []
-                                   , famRemove   = False
-                                   , famUpdate   = ["$inc" =: [update =: (1 :: Int)]]
-                                   , famNew      = True
-                                   , famUpsert   = False
-                                   } >>= fromBson
+  -- This is quite tricky. This query selects the submission with the
+  -- given id, and checking that the user that's voting hasn't voted
+  -- before, while increasing the up/down votes and adding the user to
+  -- the list of voters.
+  s' <- findAndModify FindAndModify
+         { famSelector = select [ $(getField 'sId) s
+                                , $(getLabel 'sVoters) =: ["$ne" =: uName user]
+                                ] postColl
+         , famSort     = []
+         , famRemove   = False
+         , famUpdate   = [ "$inc"  =: [update =: (1 :: Int)]
+                         , "$push" =: [$(getLabel 'sVoters) =: (uName user)]
+                         ]
+         , famNew      = True
+         , famUpsert   = False
+         } >>= fromBson
   score <- scoreSubmission s'
   -- Note that I select the post based on the id *and* the number of
   -- votes. In this way we are sure of updating the post only if the
@@ -206,17 +216,22 @@ voteSubmission s up = do
   return ()
 
 
-voteComment :: DbAccess m => Comment -> Bool -> m ()
-voteComment c up = do
+voteComment :: DbAccess m => Comment -> Bool -> User -> m ()
+voteComment c up user = do
   let update | up        = $(getLabel 'cVotesUp)
              | otherwise = $(getLabel 'cVotesDown)
-  c' <- findAndModify FindAndModify { famSelector = select [$(getField 'cId) c] postColl
-                                   , famSort     = []
-                                   , famRemove   = False
-                                   , famUpdate   = ["$inc" =: [update =: (1 :: Int)]]
-                                   , famNew      = True
-                                   , famUpsert   = False
-                                   } >>= fromBson
+  c' <- findAndModify FindAndModify
+         { famSelector = select [ $(getField 'cId) c
+                                , $(getLabel 'cVoters) =: ["$ne" =: uName user]
+                                ] postColl
+         , famSort     = []
+         , famRemove   = False
+         , famUpdate   = [ "$inc"  =: [update =: (1 :: Int)]
+                         , "$push" =: [$(getLabel 'cVoters) =: (uName user)]
+                         ]
+         , famNew      = True
+         , famUpsert   = False
+         } >>= fromBson                           
   let score = scoreComment c'
   findAndModify FindAndModify { famSelector = select [ $(getField 'cId) c'
                                                      , $(getField 'cVotesUp) c'
@@ -230,6 +245,7 @@ voteComment c up = do
                               }
   return ()
 
-votePost :: (DbAccess m, MonadContext m) => Either Submission Comment -> Bool -> m ()
-votePost (Left s)  = voteSubmission s
-votePost (Right c) = voteComment c
+votePost :: (DbAccess m, MonadContext m)
+            => Either Submission Comment -> Bool -> User -> m ()
+votePost (Left s)  up user = voteSubmission s up user
+votePost (Right c) up user = voteComment c up user
