@@ -44,12 +44,16 @@ dispatch (R_Post id') = do
       seeOtherURL (R_Post id')
 
 dispatch R_Login = do
-  resp' <- eitherHappstackForm loginForm "loginForm"
-  case resp' of
-    Left form -> loginPage form
-    Right (userName, _) -> do
-      makeSession userName
-      redirectPage
+  userM <- askContext sessionUser
+  case userM of
+    Just _ -> render $ template ("Login", Just [<h2>You are already logged in</h2>], [])
+    Nothing -> do
+      resp' <- eitherHappstackForm loginForm "loginForm"
+      case resp' of
+        Left form -> loginPage form
+        Right (userName, _) -> do
+          makeSession userName
+          redirectPage
 
 dispatch R_Submit =
   checkUser anyUser $ \user -> do
@@ -65,14 +69,32 @@ dispatch R_Submit =
         submission <- query $ newSubmission (uName user) title content
         seeOtherURL $ R_Post (sId submission)
 
-dispatch R_Logout = expireSession >> redirectPage
+dispatch R_Logout = expireSession >> redirectPageReferer
 
-dispatch (R_Vote id' up) =
-  checkUser anyUser $ \user -> do
-    postM <- query $ getPost id'
-    maybe notFoundError ((>> redirectPage) . query . (\p -> votePost p up user)) postM
+dispatch (R_Vote id' up) = do
+  post <- query (getPost id') >>= maybe notFoundError return
+  checkUser (checkIfVoter post) $ \user -> query (votePost post up user) >>
+                                           redirectPageReferer
+  where
+    checkIfVoter (Left s) user  = not (uName user `elem` sVoters s)
+    checkIfVoter (Right c) user = not (uName user `elem` cVoters c)
 
 dispatch (R_Submissions submissions psort page) =
   submissionsPage submissions psort page
+
+
+dispatch R_Register = do
+  user <- askContext sessionUser
+  case user of
+    Just _ -> render $ template ("Login", Just [<h2>You are already registered</h2>], [])
+    Nothing -> do
+      resp' <- eitherHappstackForm registerForm "registerForm"
+      case resp' of
+        Left form -> registerPage form
+        Right (userName, password) -> do
+          query $ newUser userName password Member ""
+          makeSession userName
+          redirectPage
+          
   
 dispatch _ = render $ template ("", Nothing, [<h2> not yet implemented </h2>])

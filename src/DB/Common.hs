@@ -33,13 +33,14 @@ data FindAndModify = FindAndModify { famSelector :: Selection
 findAndModify :: DbAccess m => FindAndModify -> m Document
 findAndModify fam = do
   doc <- runCommand [ "findAndModify" =: coll (famSelector fam)
-                    , "query"        =: selector (famSelector fam)
-                    , "sort"         =: famSort fam
-                    , "remove"       =: famRemove fam
-                    , "update"       =: famUpdate fam
-                    , "new"          =: famNew fam
-                    , "upsert"       =: famUpsert fam
-                    ]
+                   , "query"        =: selector (famSelector fam)
+                   , "sort"         =: famSort fam
+                   , "remove"       =: famRemove fam
+                   , "update"       =: famUpdate fam
+                   , "new"          =: famNew fam
+                   , "upsert"       =: famUpsert fam
+                   ]
   case lookup "value" doc of
     Just v -> return v
     Nothing -> lookup "errmsg" doc >>= throw . QueryFailure
+

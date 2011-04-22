@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
 module Pages.User (
     loginPage
+  , registerPage
   ) where  
 
 
@@ -18,3 +19,9 @@ loginPage form = render $ template ( "Login"
                                    , Just [<span>Login</span>]
                                    , [renderForm form "Submit"]
                                    )
+
+registerPage :: [TemplateM] -> PageM Response
+registerPage form = render $ template ( "Register"
+                                      , Just [<span>Register</span>]
+                                      , [renderForm form "Register"]
+                                      )

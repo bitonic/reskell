@@ -3,6 +3,7 @@ module Forms (
     loginForm
   , submitForm
   , commentForm
+  , registerForm
   ) where
 
 
@@ -10,7 +11,7 @@ import Control.Monad           (liftM)
 import Control.Applicative     ((<$>), (<*>))
 
 import Data.Monoid             (mconcat)
-import Data.Maybe              (isJust)
+import Data.Maybe              (isJust, isNothing)
 import qualified Data.ByteString.Char8 as B8
 
 import Text.Digestive.Types
@@ -38,6 +39,26 @@ loginForm = childErrors ++> form
     
     validator = checkM "Incorrect username/password" $ \(userName, password) ->
       liftM isJust (query $ checkLogin userName password)
+
+
+registerForm :: AppForm (UserName, Password)
+registerForm = childErrors ++> form
+  where
+    form = (`validate` validator) $ (,)
+           <$> label "Username: " ++> inputString Nothing
+           <*> label "Password: " ++> (B8.pack <$> inputPassword)
+    
+    validator = mconcat
+                [ checkM "Username already exist" $ \(userName, _) ->
+                   liftM isNothing (query $ getUser userName)
+                , checkM "Password too short (min 5 characters)" $ \(_, password) ->
+                   return (B8.length password > 5)
+                , checkM "Password too long (max 50 chars)" $ \(_, password) ->
+                   return (B8.length password < 50)
+                , checkM "Username too long (max 100 chars)" $ \(userName, _) ->
+                   return (length userName < 100)
+                ]
+
 
 
 submitForm :: AppForm (String, String, String)

@@ -1,5 +1,4 @@
-{-# Language DeriveDataTypeable, TypeFamilies, FlexibleContexts #-}
-
+{-# Language DeriveDataTypeable, TypeFamilies, FlexibleContexts, TemplateHaskell #-}
 module Types.Route (
     Submissions (..)
   , PostSort (..)
@@ -8,6 +7,7 @@ module Types.Route (
   , home
   , routeRedirect
   , redirectPage
+  , redirectPageReferer
   ) where
 
 
@@ -25,7 +25,6 @@ import Happstack.Server
 
 import Types.User
 import Types.Post
-
 
 
 data Submissions = Asks | Links | Submissions
@@ -51,6 +50,7 @@ data Route = R_Submissions Submissions PostSort PageNumber
 
 home :: Route
 home = R_Submissions Submissions Top 0
+
 
 instance PathInfo Route where
   toPathSegments (R_Submissions submissions psort page) =
@@ -98,8 +98,7 @@ instance PathInfo Route where
          , do segment "register"
               return R_Register
          ]
-    
-  
+
 
 readSegment :: Read a => URLParser a
 readSegment = anySegment >>= readM
@@ -124,7 +123,6 @@ routeRedirect r = do
 
 -- | Redirects the page, with this criteria:
 -- If the query "redir" is present, redirect there
--- If a referer is present, redirect there
 -- Otherwise, go to the home.
 redirectPage ::
   ( ServerMonad m
@@ -133,6 +131,22 @@ redirectPage ::
   , URL m ~ Route
   ) => m Response
 redirectPage = do
+  qRedir <- liftM rqInputsQuery askRq >>= \query -> return $ do
+    i <- lookup redirQuery query
+    either (const Nothing) Just (inputValue i)
+  case qRedir of
+    Just redir -> liftM toResponse (seeOther (BL.unpack redir) "")
+    Nothing -> seeOtherURL home
+
+
+-- | Same as above, but also looks for a referer.
+redirectPageReferer ::
+  ( ServerMonad m
+  , FilterMonad Response m
+  , ShowURL m
+  , URL m ~ Route
+  ) => m Response
+redirectPageReferer = do
   qRedir <- liftM rqInputsQuery askRq >>= \query -> return $ do
     i <- lookup redirQuery query
     either (const Nothing) Just (inputValue i)
