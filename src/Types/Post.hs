@@ -72,6 +72,7 @@ data Submission = Submission { sId        :: PostId
                              , sVotesUp   :: Int
                              , sVotesDown :: Int
                              , sScore     :: Double
+                             , sVoters    :: [UserName]
                              }
                 deriving (Eq, Ord, Show, Read, Data, Typeable)
 
@@ -88,6 +89,7 @@ data Comment = Comment { cId         :: PostId
                        , cParent     :: Int
                        , cSubmission :: Int
                        , cScore      :: Double
+                       , cVoters     :: [UserName]
                        }
              deriving (Eq, Ord, Show, Read, Data, Typeable)
 

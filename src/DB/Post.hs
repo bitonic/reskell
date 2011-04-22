@@ -57,12 +57,13 @@ initScoring = do
 -- | Increments the post counter atomically.
 incPostCounter :: DbAccess m => m PostId
 incPostCounter =
-  runCommand [ "findAndModify" =: postColl
-             , "query"         =: ["_id" =: postCounter]
-             , "new"           =: True
-             , "update"        =: ["$inc" =: ["counter" =: (1 :: PostId)]]
-             , "upsert"        =: True
-             ] >>= lookup "value" >>= lookup "counter"
+  findAndModify FindAndModify { famSelector = select ["_id" =: postCounter] postColl
+                              , famSort     = []
+                              , famRemove   = False
+                              , famUpdate   = ["$inc" =: ["counter" =: (1 :: PostId)]]
+                              , famNew      = True
+                              , famUpsert   = True
+                              } >>= lookup "counter"
 
 
 newSubmission :: (MonadIO m, DbAccess m, MonadContext m)
@@ -78,6 +79,7 @@ newSubmission username title content = do
                               , sVotesUp   = 0
                               , sVotesDown = 0
                               , sScore     = 0
+                              , sVoters    = []
                               }
   score <- scoreSubmission submission
   insert_ postColl $ toBson $ submission {sScore = score}
@@ -97,6 +99,7 @@ newComment username text submissionid parent = do
                         , cParent     = pId parent
                         , cSubmission = submissionid
                         , cScore      = 0
+                        , cVoters     = []
                         }
   insert_ postColl $ toBson $ comment {cScore = scoreComment comment}
   return comment
@@ -166,10 +169,10 @@ scoreComment :: Comment -> Double
 scoreComment comment =
   if n == 0
   then 0
-  else phat+z*z/(2*n)-z*(sqrt ((phat*(1-phat)+z*z/(4*n))/n))/(1+z*z/n)
+  else phat+z*z/(2*n)-z* sqrt ((phat*(1-phat)+z*z/(4*n))/n) / (1+z*z/n)
   where
     pos  = realToFrac $ cVotesUp comment
-    n    = pos + (realToFrac $ cVotesDown comment)
+    n    = pos + realToFrac (cVotesDown comment)
     phat = pos / n
     z    = 1.644853646608357 -- 95% confidence, Statistics2.pnormaldist(1-0.2/2)
     
@@ -178,24 +181,28 @@ voteSubmission :: (MonadContext m, DbAccess m) => Submission -> Bool -> m ()
 voteSubmission s up = do
   let update | up        = $(getLabel 'sVotesUp)
              | otherwise = $(getLabel 'sVotesDown)
-  s' <- runCommand
-        [ "findAndModify" =: postColl
-        , "query"         =: [$(getField 'sId) s]
-        , "new"           =: True
-        , "update"        =: ["$inc" =: [update =: (1 :: Int)]]
-        ] >>= lookup "value" >>= fromBson
+  s' <- findAndModify FindAndModify { famSelector = select [$(getField 'sId) s] postColl
+                                   , famSort     = []
+                                   , famRemove   = False
+                                   , famUpdate   = ["$inc" =: [update =: (1 :: Int)]]
+                                   , famNew      = True
+                                   , famUpsert   = False
+                                   } >>= fromBson
   score <- scoreSubmission s'
   -- Note that I select the post based on the id *and* the number of
   -- votes. In this way we are sure of updating the post only if the
   -- post is in the same state that we received it. In this way we
   -- avoid race conditions.
-  runCommand [ "findAndModify" =: postColl
-             , "query"         =: [ $(getField 'sId) s'
-                                  , $(getField 'sVotesUp) s'
-                                  , $(getField 'sVotesDown) s'
-                                  ]
-             , "update"        =: ["$set" =: [$(getLabel 'sScore) =: score]]
-             ]
+  findAndModify FindAndModify { famSelector = select [ $(getField 'sId) s'
+                                                     , $(getField 'sVotesUp) s'
+                                                     , $(getField 'sVotesDown) s'
+                                                     ] postColl
+                              , famSort     = []
+                              , famRemove   = False
+                              , famUpdate   = ["$set" =: [$(getLabel 'sScore) =: score]]
+                              , famNew      = False
+                              , famUpsert   = False
+                              }
   return ()
 
 
@@ -203,22 +210,26 @@ voteComment :: DbAccess m => Comment -> Bool -> m ()
 voteComment c up = do
   let update | up        = $(getLabel 'cVotesUp)
              | otherwise = $(getLabel 'cVotesDown)
-  c' <- runCommand
-        [ "findAndModify" =: postColl
-        , "query"         =: [$(getField 'cId) c]
-        , "new"           =: True
-        , "update"        =: ["$inc" =: [update =: (1 :: Int)]]
-        ] >>= lookup "value" >>= fromBson
+  c' <- findAndModify FindAndModify { famSelector = select [$(getField 'cId) c] postColl
+                                   , famSort     = []
+                                   , famRemove   = False
+                                   , famUpdate   = ["$inc" =: [update =: (1 :: Int)]]
+                                   , famNew      = True
+                                   , famUpsert   = False
+                                   } >>= fromBson
   let score = scoreComment c'
-  runCommand [ "findAndModify" =: postColl
-             , "query"         =: [ $(getField 'cId) c'
-                                  , $(getField 'cVotesUp) c'
-                                  , $(getField 'cVotesDown) c'
-                                  ]
-             , "update"        =: ["$set" =: [$(getLabel 'cScore) =: score]]
-             ]
+  findAndModify FindAndModify { famSelector = select [ $(getField 'cId) c'
+                                                     , $(getField 'cVotesUp) c'
+                                                     , $(getField 'cVotesDown) c'
+                                                     ] postColl
+                              , famSort     = []
+                              , famRemove   = False
+                              , famUpdate   = ["$set" =: [$(getLabel 'cScore) =: score]]
+                              , famNew      = False
+                              , famUpsert   = False
+                              }
   return ()
 
-votePost :: (DbAccess m, MonadContext m) => (Either Submission Comment) -> Bool -> m ()
+votePost :: (DbAccess m, MonadContext m) => Either Submission Comment -> Bool -> m ()
 votePost (Left s)  = voteSubmission s
 votePost (Right c) = voteComment c
