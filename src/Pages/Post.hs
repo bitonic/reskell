@@ -62,6 +62,7 @@ renderComment :: Comment -> TemplateM
 renderComment comment = do
   { comments <- query $ getComments comment
   ; <div class="comment">
+      <% voteArrows comment %>
       <% commentDetails comment Nothing %>
       <div class="postText">
         <% cText comment %>
@@ -120,26 +121,51 @@ truncateText :: String -> Int -> String
 truncateText t n | length t < n = t 
                  | otherwise    = take n t ++ "..."
 
-submissionLink :: Submission -> [TemplateM]
-submissionLink s = case sContent s of
-  Ask _    -> [<a href=(R_Post (sId s))> <% sTitle s %> </a>]
-  Link l d -> [ <a href=l><% sTitle s %></a>
-             , <span class="linkDomain"> (<% d %>)</span>
-             ]
+voteArrows :: Post a => a -> TemplateM
+voteArrows p = do
+  { userM <- askContext sessionUser
+  ; <div class="voteArrows">
+      <% if maybe False (\u -> uName u `elem` pVoters p) userM
+         then []
+         else [ <a href=(R_Vote (pId p) True)>
+                  <img src=(R_Static ["images", "arrowUp.png"]) alt="Vote up" />
+                </a>
+              , <a href=(R_Vote (pId p) False)>
+                  <img src=(R_Static ["images", "arrowDown.png"]) alt="Vote down" />
+                </a>
+              ]
+      %>
+    </div>
+  }
+
+submissionLink :: Submission -> Bool -> TemplateM
+submissionLink s listing =
+  <div class="submissionLink">
+    <% voteArrows s %>
+    <h2> <% case sContent s of
+              Ask _    -> [<a href=(R_Post (sId s))><% sTitle s %></a>]
+              Link l d -> [ <a href=l><% sTitle s %></a>
+                         , <span class="linkDomain"> (<% d %>)</span>
+                         ]
+         %>
+    </h2>
+    <% submissionDetails s listing %>
+  </div>
+      
 
 postPage :: [TemplateM] -> Either Submission Comment -> PageM Response
 postPage form (Left p) = do
   comments <- query $ getComments p
-  render $ template (sTitle p, Just (submissionLink p), content comments)
+  render $ template (sTitle p, Nothing, content comments)
   where
-    content comments = submissionDetails p False : text ++
+    content comments = submissionLink p False : text ++
                        form ++ [renderComments comments]
 
     text = case sContent p of
       Ask t -> [<div class="postText"><% t %></div>]
       _     -> []
 
-        
+
 postPage form (Right p) = do
   sM <- query $ getSubmission (cSubmission p)
   s <- maybe (serverError "Could not find comment's submission in the db.") return sM
@@ -166,7 +192,7 @@ submissionsPage :: Submissions -> PostSort -> PageNumber -> PageM Response
 submissionsPage submissions psort page = do
   posts <- query $ getSubmissions submissions psort postsPerPage (postsPerPage * page)
   render $ template $
-    ( show submissions ++ " " ++ show psort
+    ( show submissions ++ " - " ++ show psort
     , Nothing
-    , map (\s -> <div><h2><% submissionLink s %></h2><% submissionDetails s True %></div>) posts
+    , map (`submissionLink` True) posts
     )

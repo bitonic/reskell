@@ -45,6 +45,7 @@ data Route = R_Submissions Submissions PostSort PageNumber
            | R_Login
            | R_Logout
            | R_Register
+           | R_CP
            | R_Static [String]
            deriving (Read, Show, Eq, Ord, Typeable, Data)
 
@@ -65,6 +66,7 @@ instance PathInfo Route where
   toPathSegments  R_Login          = ["login"]
   toPathSegments  R_Logout         = ["logout"]
   toPathSegments  R_Register       = ["register"]
+  toPathSegments  R_CP             = ["cp"]
   toPathSegments (R_Static segs)   = "static" : segs
     
   -- Note that the "static" is left out on purpose, since we sould
@@ -87,7 +89,7 @@ instance PathInfo Route where
               up <- readSegment
               return $ R_Vote id' up
          , segment "submit" >> return R_Submit
-         , do segment "comment"
+         , do segment "copmment"
               liftM R_Comment readSegment
          , do segment "user"
               liftM R_User anySegment
@@ -97,6 +99,8 @@ instance PathInfo Route where
               return R_Logout
          , do segment "register"
               return R_Register
+         , do segment "cp"
+              return R_CP
          ]
 
 

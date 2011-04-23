@@ -41,22 +41,25 @@ loginForm = childErrors ++> form
       liftM isJust (query $ checkLogin userName password)
 
 
-registerForm :: AppForm (UserName, Password)
+registerForm :: AppForm (UserName, Password, Password)
 registerForm = childErrors ++> form
   where
-    form = (`validate` validator) $ (,)
+    form = (`validate` validator) $ (,,)
            <$> label "Username: " ++> inputString Nothing
            <*> label "Password: " ++> (B8.pack <$> inputPassword)
+           <*> label "Confirm password: " ++> (B8.pack <$> inputPassword)
     
     validator = mconcat
-                [ checkM "Username already exist" $ \(userName, _) ->
+                [ checkM "Username already exist" $ \(userName, _, _) ->
                    liftM isNothing (query $ getUser userName)
-                , checkM "Password too short (min 5 characters)" $ \(_, password) ->
+                , checkM "Password too short (min 5 characters)" $ \(_, password, _) ->
                    return (B8.length password > 5)
-                , checkM "Password too long (max 50 chars)" $ \(_, password) ->
+                , checkM "Password too long (max 50 chars)" $ \(_, password, _) ->
                    return (B8.length password < 50)
-                , checkM "Username too long (max 100 chars)" $ \(userName, _) ->
+                , checkM "Username too long (max 100 chars)" $ \(userName, _, _) ->
                    return (length userName < 100)
+                , checkM "The two passwords don't match" $ \(_, p1, p2) ->
+                   return $ p1 == p2
                 ]
 
 
@@ -83,3 +86,5 @@ submitForm = childErrors ++> form
 
 commentForm :: AppForm String
 commentForm = childErrors ++> inputTextArea (Just 8) (Just 70) Nothing
+
+

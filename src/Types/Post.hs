@@ -32,6 +32,7 @@ class (Bson a, Typeable a) => Post a where
   pId       :: a -> PostId
   pTime     :: a -> UTCTime
   pUserName :: a -> UserName
+  pVoters   :: a -> [UserName]
   
 
 data SContent = Ask String  
@@ -99,8 +100,10 @@ instance Post Submission where
   pId       = sId
   pTime     = sTime
   pUserName = sUserName
+  pVoters   = sVoters
 
 instance Post Comment where
   pId       = cId
   pTime     = cTime
   pUserName = cUserName
+  pVoters   = cVoters

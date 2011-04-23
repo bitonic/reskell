@@ -69,7 +69,7 @@ template (title, heading, content) =
                                 <a href=login>login</a>
                               </%>
                     Just u -> <%>
-                               <a href=(R_User (uName u))><% uName u %></a>
+                               <a href=(R_CP)><% uName u %></a>
                                <% separator %>
                                <a href=(R_Logout)>logout</a>
                              </%>

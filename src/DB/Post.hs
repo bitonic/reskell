@@ -193,7 +193,7 @@ voteSubmission s up user = do
          , famSort     = []
          , famRemove   = False
          , famUpdate   = [ "$inc"  =: [update =: (1 :: Int)]
-                         , "$push" =: [$(getLabel 'sVoters) =: uName user]
+                         , "$addToSet" =: [$(getLabel 'sVoters) =: uName user]
                          ]
          , famNew      = True
          , famUpsert   = False
@@ -227,7 +227,7 @@ voteComment c up user = do
          , famSort     = []
          , famRemove   = False
          , famUpdate   = [ "$inc"  =: [update =: (1 :: Int)]
-                         , "$push" =: [$(getLabel 'cVoters) =: uName user]
+                         , "$addToSet" =: [$(getLabel 'cVoters) =: uName user]
                          ]
          , famNew      = True
          , famUpsert   = False

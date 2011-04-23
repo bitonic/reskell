@@ -79,6 +79,7 @@ dispatch (R_Vote id' up) = do
     checkIfVoter (Left s) user  = not (uName user `elem` sVoters s)
     checkIfVoter (Right c) user = not (uName user `elem` cVoters c)
 
+
 dispatch (R_Submissions submissions psort page) =
   submissionsPage submissions psort page
 
@@ -91,10 +92,13 @@ dispatch R_Register = do
       resp' <- eitherHappstackForm registerForm "registerForm"
       case resp' of
         Left form -> registerPage form
-        Right (userName, password) -> do
+        Right (userName, password, _) -> do
           query $ newUser userName password Member ""
           makeSession userName
           redirectPage
+
+
+dispatch (R_User userName) = query (getUser userName) >>= maybe notFoundError userPage
           
   
 dispatch _ = render $ template ("", Nothing, [<h2> not yet implemented </h2>])

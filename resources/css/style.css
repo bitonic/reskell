@@ -119,6 +119,35 @@ p
   margin:0.3em 0;
 }
 
+.voteArrows
+{
+  float: left;
+  font-size: 1.3em;
+  /* width:1em; */
+  width: 16px;
+  height: 32px;
+  margin-top: 0.1em;
+}
+
+.voteArrows a
+{
+  float: left;
+  margin:0 2px;
+  text-decoration: none;
+  line-height: 0.8em;
+  color: #4E6272;
+}
+
+.voteArrows a:visited
+{
+  visibility: hidden;
+}
+
+.submissionLink
+{
+  clear: both;
+}
+
 /* Footer */
 
 #footer
@@ -143,5 +172,10 @@ form input, form label, form textarea
 form ul
 {
   color: red;
+  font-weight: bold;
+}
+
+label
+{
   font-weight: bold;
 }
