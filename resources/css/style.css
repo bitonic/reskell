@@ -77,6 +77,11 @@ h2 a
   color: #4E6272;
 }
 
+h2 a:visited
+{
+  color: #7492aa;
+}
+
 .submissionDetails, .commentDetails
 {
   font-size: 0.85em;

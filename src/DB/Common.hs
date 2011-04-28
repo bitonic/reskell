@@ -18,7 +18,7 @@ import Database.MongoDB
 
 -- | Generic function to get an item given a query.
 getItem :: (Bson i, DbAccess m) => Query -> m (Maybe i)
-getItem q = liftM (>>= fromBson) $ findOne q
+getItem = liftM (>>= fromBson) . findOne
 
 
 

@@ -26,7 +26,7 @@ import Auth
 
 dispatch :: Route -> PageM Response
 
-dispatch (R_Post id') = do
+dispatch r@(R_Post id' psort) = do
   post <- query (getPost id') >>= \postM -> case postM of
     Nothing -> notFoundError
     Just p  -> return p
@@ -35,13 +35,13 @@ dispatch (R_Post id') = do
     Left form -> do
       userM <- askContext sessionUser
       case userM of
-        Nothing -> postPage [] post
-        Just _  -> postPage [renderForm form "Comment"] post
+        Nothing -> postPage [] post psort
+        Just _  -> postPage [renderForm form "Comment"] post psort
     Right comment -> checkUser anyUser $ \user -> do
       case post of
         Left s -> query $ newComment (uName user) comment (sId s) s
         Right c -> query $ newComment (uName user) comment (cSubmission c) c
-      seeOtherURL (R_Post id')
+      seeOtherURL r
 
 dispatch R_Login = do
   userM <- askContext sessionUser
@@ -67,7 +67,7 @@ dispatch R_Submit =
                      Just d  -> return $ Link link d
                    else return $ Ask ask
         submission <- query $ newSubmission (uName user) title content
-        seeOtherURL $ R_Post (sId submission)
+        seeOtherURL $ R_Post (sId submission) Top
 
 dispatch R_Logout = expireSession >> redirectPageReferer
 
@@ -80,8 +80,8 @@ dispatch (R_Vote id' up) = do
     checkIfVoter (Right c) user = not (uName user `elem` cVoters c)
 
 
-dispatch (R_Submissions submissions psort page) =
-  submissionsPage submissions psort page
+dispatch (R_Submissions submissions psort page userM) =
+  submissionsPage submissions psort page userM
 
 
 dispatch R_Register = do
@@ -96,6 +96,16 @@ dispatch R_Register = do
           query $ newUser userName password Member ""
           makeSession userName
           redirectPage
+
+dispatch R_CP =
+  checkUser anyUser $ \user -> do
+    resp' <- eitherHappstackForm (cpForm user) "cpForm"
+    case resp' of
+      Left form -> cpPage form
+      Right (about, _, new, _) -> do
+        let user' = user {uAbout = about, uPassword = new}
+        query $ updateUser user'
+        seeOtherURL R_CP
 
 
 dispatch (R_User userName) = query (getUser userName) >>= maybe notFoundError userPage

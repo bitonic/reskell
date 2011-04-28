@@ -58,25 +58,26 @@ whenPosted p =
     %>
   </%>
 
-renderComment :: Comment -> TemplateM
-renderComment comment = do
-  { comments <- query $ getComments comment
+renderComment :: Comment -> PostSort -> TemplateM
+renderComment comment psort = do
+  { comments <- query $ getComments comment psort
   ; <div class="comment">
       <% voteArrows comment %>
-      <% commentDetails comment Nothing %>
+      <% commentDetails comment Nothing psort %>
       <div class="postText">
         <% cText comment %>
       </div>
 
       <% if null comments
          then []
-         else [<% renderComments comments %>]
+         else [<% renderComments comments psort %>]
       %>
     </div>
   }
 
-renderComments :: [Comment] -> TemplateM
-renderComments cs = <div class="comments"><% map renderComment cs %></div >
+renderComments :: [Comment] -> PostSort -> TemplateM
+renderComments cs psort =
+  <div class="comments"><% map (`renderComment` psort) cs %></div >
 
 submissionDetails :: Submission -> Bool -> TemplateM
 submissionDetails s listing = do
@@ -85,7 +86,7 @@ submissionDetails s listing = do
       <% whenPosted s %>
       <% if listing
          then [ <span><% separator %></span>
-              , <a href=(R_Post (sId s))><% comments commentsN %></a>
+              , <a href=(R_Post (sId s) Top)><% comments commentsN %></a>
               ]
          else []
       %>
@@ -96,22 +97,22 @@ submissionDetails s listing = do
     comments 1 = "1 comment"
     comments n = show n ++ " comment"
 
-commentDetails :: Comment -> Maybe Submission -> TemplateM
-commentDetails c sM =
+commentDetails :: Comment -> Maybe Submission -> PostSort -> TemplateM
+commentDetails c sM psort =
   <div class="commentDetails">
     <% whenPosted c %><% separator %>
-    <a href=(R_Post (cId c))>link</a>
+    <a href=(R_Post (cId c) Top)>link</a>
     <% case sM of
          Nothing -> []
          Just s  -> return $ do
-           submissionURL <- showURL $ R_Post (sId s)
+           submissionURL <- showURL $ R_Post (sId s) psort
            if sId s == cParent c
              then <%>
                     <% separator %>on: <a href=submissionURL>
                     <% sTitle s %></a>
                   </%>
              else <%>
-                    <% separator %><a href=(R_Post (cParent c))>parent</a>
+                    <% separator %><a href=(R_Post (cParent c) Top)>parent</a>
                     <% separator %>on: <a href=submissionURL><% sTitle s %></a>
                   </%>
     %>
@@ -143,7 +144,7 @@ submissionLink s listing =
   <div class="submissionLink">
     <% voteArrows s %>
     <h2> <% case sContent s of
-              Ask _    -> [<a href=(R_Post (sId s))><% sTitle s %></a>]
+              Ask _    -> [<a href=(R_Post (sId s) Top)><% sTitle s %></a>]
               Link l d -> [ <a href=l><% sTitle s %></a>
                          , <span class="linkDomain"> (<% d %>)</span>
                          ]
@@ -153,28 +154,28 @@ submissionLink s listing =
   </div>
       
 
-postPage :: [TemplateM] -> Either Submission Comment -> PageM Response
-postPage form (Left p) = do
-  comments <- query $ getComments p
+postPage :: [TemplateM] -> Either Submission Comment -> PostSort -> PageM Response
+postPage form (Left p) psort = do
+  comments <- query $ getComments p psort
   render $ template (sTitle p, Nothing, content comments)
   where
     content comments = submissionLink p False : text ++
-                       form ++ [renderComments comments]
+                       form ++ [renderComments comments psort]
 
     text = case sContent p of
       Ask t -> [<div class="postText"><% t %></div>]
       _     -> []
 
 
-postPage form (Right p) = do
+postPage form (Right p) psort = do
   sM <- query $ getSubmission (cSubmission p)
   s <- maybe (serverError "Could not find comment's submission in the db.") return sM
-  comments <- query $ getComments p
+  comments <- query $ getComments p psort
   render $ template $
     ( truncateText (cText p) 200
     , Nothing
-    , commentDetails p (Just s) : <div class="postText"><% cText p %></div> :
-       form ++ [renderComments comments]
+    , commentDetails p (Just s) psort : <div class="postText"><% cText p %></div> :
+       form ++ [renderComments comments psort]
     )
 
 
@@ -188,11 +189,15 @@ submitPage form = render $ template $
                   )
 
 
-submissionsPage :: Submissions -> PostSort -> PageNumber -> PageM Response
-submissionsPage submissions psort page = do
-  posts <- query $ getSubmissions submissions psort postsPerPage (postsPerPage * page)
+submissionsPage :: Submissions
+                   -> PostSort
+                   -> PageNumber
+                   -> Maybe UserName
+                   -> PageM Response
+submissionsPage submissions psort page userM = do
+  posts <- query $ getSubmissions submissions psort postsPerPage (postsPerPage * page) userM
   render $ template $
     ( show submissions ++ " - " ++ show psort
     , Nothing
-    , map (`submissionLink` True) posts
+    , map (`submissionLink` True ) posts
     )

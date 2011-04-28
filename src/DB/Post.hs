@@ -124,27 +124,41 @@ getPosts q = find q >>= rest >>= mapM fromBson
 
                   
 getSubmissions :: DbAccess m
-                  => Submissions -> PostSort -> Limit -> Word32 -> m [Submission]
-getSubmissions listing psort l s =
-  getPosts (select (selectField listing) postColl)
+                  => Submissions
+                  -> PostSort
+                  -> Limit
+                  -> Word32
+                  -> Maybe UserName
+                  -> m [Submission]
+getSubmissions listing psort l s userM =
+  getPosts (select (selectField ++ userField) postColl)
     { limit = l
     , skip  = s
-    , sort  = [sortField psort, $(getLabel 'sTime) =: (-1 :: Int)]
+    , sort  = sortField
     }
   where
-    sortField New = $(getLabel 'sTime) =: (-1 :: Int)
-    sortField Top = $(getLabel 'sScore) =: (-1 :: Int)
+    sortField = case psort of
+      New -> [$(getLabel 'sTime) =: (-1 :: Int)]
+      Top -> [$(getLabel 'sScore) =: (-1 :: Int), $(getLabel 'sTime) =: (-1 :: Int)]
     
-    selectField Asks = subDocument $(getLabel 'sContent) $(getConsDoc 'Ask)
-    selectField Links = subDocument $(getLabel 'sContent) $(getConsDoc 'Link)
-    selectField Submissions = $(getConsDoc 'Submission)
+    selectField = case listing of 
+      Submissions -> $(getConsDoc 'Submission)
+      Asks -> subDocument $(getLabel 'sContent) $(getConsDoc 'Ask)
+      Links -> subDocument $(getLabel 'sContent) $(getConsDoc 'Link)
+    
+    userField = case userM of
+      Nothing -> []
+      Just user -> [$(getLabel 'sUserName) =: user]
 
 
-getComments :: (DbAccess m, Post a) => a -> m [Comment]
-getComments p = getPosts (select [$(getLabel 'cParent) =: pId p] postColl)
-                  {sort = [ $(getLabel 'cScore) =: (-1 :: Int)
-                          , $(getLabel 'cTime) =: (-1 :: Int)]}
-
+getComments :: (DbAccess m, Post a) => a -> PostSort -> m [Comment]
+getComments p psort = getPosts (select [$(getLabel 'cParent) =: pId p] postColl)
+                        {sort = sortField}
+  where
+    sortField = case psort of
+      New -> [$(getLabel 'cTime) =: (-1 :: Int)]
+      Top -> [$(getLabel 'cScore) =: (-1 :: Int), $(getLabel 'cTime) =: (-1 :: Int)]
+                          
 countComments :: (DbAccess m, Post a) => a -> m Int
 countComments p = count (select [$(getLabel 'cParent) =: pId p] postColl)
 

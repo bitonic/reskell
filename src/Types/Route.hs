@@ -16,6 +16,9 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Word                     (Word32)
 
+import Text.ParserCombinators.Parsec (optionMaybe)
+
+import Control.Applicative           ((<*>), (<$>))
 import Control.Monad
 
 import Web.Routes
@@ -35,12 +38,11 @@ data PostSort = New | Top
 
 type PageNumber = Word32
 
-data Route = R_Submissions Submissions PostSort PageNumber
-           | R_Comments PostSort PageNumber
-           | R_Post PostId
+data Route = R_Submissions Submissions PostSort PageNumber (Maybe UserName)
+           | R_Comments PostSort PageNumber UserName
+           | R_Post PostId PostSort
            | R_Vote PostId Bool
            | R_Submit
-           | R_Comment PostId
            | R_User UserName
            | R_Login
            | R_Logout
@@ -50,47 +52,39 @@ data Route = R_Submissions Submissions PostSort PageNumber
            deriving (Read, Show, Eq, Ord, Typeable, Data)
 
 home :: Route
-home = R_Submissions Submissions Top 0
+home = R_Submissions Submissions Top 0 Nothing
 
 
 instance PathInfo Route where
-  toPathSegments (R_Submissions submissions psort page) =
-    ["submissions", show submissions, show psort, show page]
-  toPathSegments (R_Comments psort page) =
-    ["comments", show psort, show page]
-  toPathSegments (R_Post id')      = ["post", show id']
-  toPathSegments (R_Vote id' up)   = ["vote", show id', show up]
-  toPathSegments  R_Submit         = ["submit"]
-  toPathSegments (R_Comment id')   = ["comment", show id']
-  toPathSegments (R_User username) = ["user", username]
-  toPathSegments  R_Login          = ["login"]
-  toPathSegments  R_Logout         = ["logout"]
-  toPathSegments  R_Register       = ["register"]
-  toPathSegments  R_CP             = ["cp"]
-  toPathSegments (R_Static segs)   = "static" : segs
+  toPathSegments (R_Submissions submissions psort page userM) =
+    case userM of
+      Nothing -> ["submissions", show submissions, show psort, show page]
+      Just user -> ["submissions", show submissions, show psort, show page, user]
+  toPathSegments (R_Comments psort page user) =
+    ["comments", show psort, show page, user]
+  toPathSegments (R_Post id' psort) = ["post", show id', show psort]
+  toPathSegments (R_Vote id' up)    = ["vote", show id', show up]
+  toPathSegments  R_Submit          = ["submit"]
+  toPathSegments (R_User username)  = ["user", username]
+  toPathSegments  R_Login           = ["login"]
+  toPathSegments  R_Logout          = ["logout"]
+  toPathSegments  R_Register        = ["register"]
+  toPathSegments  R_CP              = ["cp"]
+  toPathSegments (R_Static segs)    = "static" : segs
     
   -- Note that the "static" is left out on purpose, since we sould
   -- serve static files with fileServe before trying to dispatch the
   -- url.
   fromPathSegments =
     msum [ do segment "submissions"
-              list <- readSegment
-              psort <- readSegment
-              page <- readSegment
-              return $ R_Submissions list psort page
+              R_Submissions <$> readSegment <*> readSegment <*> readSegment <*> optionMaybe anySegment
          , do segment "comments"
-              psort <- readSegment
-              page <- readSegment
-              return $ R_Comments psort page
+              R_Comments <$> readSegment <*> readSegment <*> readSegment
          , do segment "post"
-              liftM R_Post readSegment
+              R_Post <$> readSegment <*> readSegment
          , do segment "vote"
-              id' <- readSegment
-              up <- readSegment
-              return $ R_Vote id' up
+              R_Vote <$> readSegment <*> readSegment
          , segment "submit" >> return R_Submit
-         , do segment "copmment"
-              liftM R_Comment readSegment
          , do segment "user"
               liftM R_User anySegment
          , do segment "login"

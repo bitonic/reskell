@@ -4,6 +4,7 @@ module Forms (
   , submitForm
   , commentForm
   , registerForm
+  , cpForm
   ) where
 
 
@@ -19,6 +20,8 @@ import Text.Digestive.Validate
 import Text.Digestive.HSP.Html4
 
 import Happstack.Server        (Input)
+
+import Crypto.PasswordStore    (verifyPassword)
 
 
 import Types
@@ -88,3 +91,20 @@ commentForm :: AppForm String
 commentForm = childErrors ++> inputTextArea (Just 8) (Just 70) Nothing
 
 
+cpForm :: User -> AppForm (String, Password, Password, Password)
+cpForm user = childErrors ++> form
+  where
+    form = (`validate` validator) $ (,,,)
+           <$> label "About: " ++> inputTextArea (Just 15) (Just 70) (Just $ uAbout user)
+           <*> label "Old password" ++> (B8.pack <$> inputPassword)
+           <*> label "New password: " ++> (B8.pack <$> inputPassword)
+           <*> label "Confirm new password: " ++> (B8.pack <$> inputPassword)
+    
+    validator = mconcat
+                [ check "You have to insert the old password to edit the new one" $
+                  \(_, old, new, _) -> B8.length old /= 0 || B8.length new == 0
+                , check "Wrong old password" $ \(_, old, _, _) ->
+                  B8.length old == 0 || verifyPassword old (uPassword user)
+                , check "The two passwords don't match" $ \(_, _, new1, new2) ->
+                  (B8.length new1 == 0 && B8.length new2 == 0) || new1 == new2
+                ]

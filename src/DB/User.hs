@@ -4,6 +4,7 @@ module DB.User (
     newUser
   , getUser
   , checkLogin
+  , updateUser
   
   , newSession
   , checkSession
@@ -61,6 +62,11 @@ checkLogin username password = do
       then return user' 
       else Nothing
 
+updateUser :: DbAccess m => User -> m ()
+updateUser user = do
+  hpassword <- liftIO $ makePassword (uPassword user) hashStrenght
+  let user' = user {uPassword = hpassword}
+  replace (select [$(getField 'uName) user] userColl) $ toBson user'
 
 -------------------------------------------------------------------------------
 

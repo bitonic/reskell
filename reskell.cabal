@@ -38,6 +38,7 @@ executable reskell
                    , hsx >= 0.9
                    , mongoDB >= 0.9.5
                    , mtl >= 2.0.1
+                   , old-locale
                    , parsec >= 3.1.1
                    , pwstore-fast >= 2.1
                    , template-haskell

@@ -3,6 +3,7 @@ module Pages.User (
     loginPage
   , registerPage
   , userPage
+  , cpPage
   ) where  
 
 
@@ -40,5 +41,16 @@ userPage user = render $ template
                     </p>
                   , <p><b>Rank:</b> <% show (uRank user) %></p>
                   , <p><b>About:</b> <% uAbout user %></p>
+                  , <p><b><a href=(R_Submissions Submissions Top 0 (Just (uName user)))>Submissions</a></b>, <b><a href=(R_Comments Top 0 (uName user))>Comments</a></b></p>
                   ]
                 )
+
+cpPage :: [TemplateM] -> PageM Response
+cpPage form = render $ template
+              ( "User CP"
+              , Nothing
+              , [ <p>Here you can edit your profile. To change the password, you have to insert the old password.</p>
+                , renderForm form "Save"
+                ]
+              )
+                
