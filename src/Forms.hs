@@ -25,7 +25,6 @@ import Crypto.PasswordStore    (verifyPassword)
 
 
 import Types
-import DB
 
 
 
@@ -40,8 +39,11 @@ loginForm = childErrors ++> form
            <$> label "Username: " ++> inputString Nothing
            <*> label "Password: " ++> (B8.pack <$> inputPassword)
     
-    validator = checkM "Incorrect username/password" $ \(userName, password) ->
-      liftM isJust (query $ checkLogin userName password)
+    validator = checkM "Incorrect username/password" $ \(userName, password) -> do
+      userM <- userQuery $ GetUser userName
+      return $ case userM of
+        Nothing -> False
+        Just user -> verifyPassword password (uPassword user)
 
 
 registerForm :: AppForm (UserName, Password, Password)
@@ -54,7 +56,7 @@ registerForm = childErrors ++> form
     
     validator = mconcat
                 [ checkM "Username already exist" $ \(userName, _, _) ->
-                   liftM isNothing (query $ getUser userName)
+                   liftM isNothing (userQuery $ GetUser userName)
                 , checkM "Password too short (min 5 characters)" $ \(_, password, _) ->
                    return (B8.length password > 5)
                 , checkM "Password too long (max 50 chars)" $ \(_, password, _) ->

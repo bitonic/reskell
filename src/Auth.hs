@@ -11,10 +11,10 @@ module Auth (
 
 import Control.Monad.Reader    (local)
 
+import qualified Data.ByteString.Char8 as B8
 import Happstack.Server
 
 import Types
-import DB
 import Pages.Common
 
 
@@ -29,8 +29,9 @@ makeSession ::
   , Functor m
   ) => UserName -> m ()
 makeSession userName = do
-  sessionid <- query $ newSession userName
-  addCookie (MaxAge maxBound) (mkCookie sessionCookie sessionid)
+  sessionId' <- liftIO genSessionId
+  dbTime userUpdate $ NewSession sessionId' userName
+  addCookie (MaxAge maxBound) (mkCookie sessionCookie $ B8.unpack sessionId')
 
 
 -- | The opposite of makeSession, remove the 'Session' from the DB and
@@ -41,7 +42,7 @@ expireSession = do
   expireCookie sessionCookie
   case eitherSid of
     Left _ -> return ()
-    Right sessionid -> query $ deleteSession sessionid
+    Right sessionid -> userUpdate $ DeleteSession (B8.pack sessionid)
 
 
 -- | Function to call at the very beginning. Checks if theres a cookie
@@ -53,7 +54,7 @@ getSessionUser f = do
   case eitherSid of
     Left _          -> local (\ctx -> ctx {sessionUser = Nothing}) f
     Right sessionid -> do
-      user <- query $ checkSession sessionid
+      user <- userQuery $ CheckSession (B8.pack sessionid)
       local (\ctx -> ctx {sessionUser = user}) f
   
 

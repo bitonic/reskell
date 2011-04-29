@@ -8,8 +8,8 @@ module Pages.Post (
   ) where
 
 
-import Control.Monad.Trans     (liftIO)
 import Data.Time.Clock
+import qualified Data.Set as S
 
 import HSP
 import HSP.ServerPartT         ()
@@ -20,7 +20,6 @@ import Happstack.Server.HSP.HTML ()
 import Web.Routes
 
 import Types
-import DB
 import Pages.Common
 
 
@@ -60,7 +59,7 @@ whenPosted p =
 
 renderComment :: Comment -> PostSort -> TemplateM
 renderComment comment psort = do
-  { comments <- query $ getComments comment psort
+  { comments <- postQuery $ GetComments psort (Just $ cId comment) Nothing
   ; <div class="comment">
       <% voteArrows comment %>
       <% commentDetails comment Nothing psort %>
@@ -81,7 +80,7 @@ renderComments cs psort =
 
 submissionDetails :: Submission -> Bool -> TemplateM
 submissionDetails s listing = do
-  { commentsN <- query $ countComments s
+  { commentsN <- postQuery $ CountComments (sId s)
   ; <div class="submissionDetails">
       <% whenPosted s %>
       <% if listing
@@ -125,17 +124,21 @@ truncateText t n | length t < n = t
 voteArrows :: Post a => a -> TemplateM
 voteArrows p = do
   { userM <- askContext sessionUser
+  ; let (arrowUp, arrowDown) = case userM of
+          Nothing -> ("arrowUp.png", "arrowDown.png")
+          Just user -> (if S.member (uName user) (pVotesUp p)
+                       then "arrowUpRed.png"
+                       else "arrowUp.png"
+                      ,if S.member (uName user) (pVotesDown p)
+                       then "arrowDownRed.png"
+                       else "arrowDown.png")
   ; <div class="voteArrows">
-      <% if maybe False (\u -> uName u `elem` pVoters p) userM
-         then []
-         else [ <a href=(R_Vote (pId p) True)>
-                  <img src=(R_Static ["images", "arrowUp.png"]) alt="Vote up" />
-                </a>
-              , <a href=(R_Vote (pId p) False)>
-                  <img src=(R_Static ["images", "arrowDown.png"]) alt="Vote down" />
-                </a>
-              ]
-      %>
+         <a href=(R_Vote (pId p) True)>
+           <img src=(R_Static ["images", arrowUp]) alt="Vote up" />
+         </a>
+         <a href=(R_Vote (pId p) False)>
+           <img src=(R_Static ["images", arrowDown]) alt="Vote down" />
+         </a>
     </div>
   }
 
@@ -156,7 +159,7 @@ submissionLink s listing =
 
 postPage :: [TemplateM] -> Either Submission Comment -> PostSort -> PageM Response
 postPage form (Left p) psort = do
-  comments <- query $ getComments p psort
+  comments <- postQuery $ GetComments psort (Just $ pId p) Nothing
   render $ template (sTitle p, Nothing, content comments)
   where
     content comments = submissionLink p False : text ++
@@ -168,9 +171,9 @@ postPage form (Left p) psort = do
 
 
 postPage form (Right p) psort = do
-  sM <- query $ getSubmission (cSubmission p)
+  sM <- postQuery $ GetSubmission (cSubmission p)
   s <- maybe (serverError "Could not find comment's submission in the db.") return sM
-  comments <- query $ getComments p psort
+  comments <- postQuery $ GetComments psort (Just $ pId p) Nothing
   render $ template $
     ( truncateText (cText p) 200
     , Nothing
@@ -195,7 +198,7 @@ submissionsPage :: Submissions
                    -> Maybe UserName
                    -> PageM Response
 submissionsPage submissions psort page userM = do
-  posts <- query $ getSubmissions submissions psort postsPerPage (postsPerPage * page) userM
+  posts <- postQuery $ GetSubmissions submissions psort postsPerPage (postsPerPage * page) userM
   render $ template $
     ( show submissions ++ " - " ++ show psort
     , Nothing

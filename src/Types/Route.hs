@@ -1,20 +1,17 @@
 {-# Language DeriveDataTypeable, TypeFamilies, FlexibleContexts, TemplateHaskell #-}
-module Types.Route (
-    Submissions (..)
-  , PostSort (..)
-  , Route (..)
-  , PageNumber
-  , home
-  , routeRedirect
-  , redirectPage
-  , redirectPageReferer
-  ) where
+module Types.Route
+       ( Route (..)
+       , PageNumber
+       , home
+       , routeRedirect
+       , redirectPage
+       , redirectPageReferer
+       ) where
 
 
 import Data.Data                     (Data, Typeable)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Data.Word                     (Word32)
 
 import Text.ParserCombinators.Parsec (optionMaybe)
 
@@ -30,13 +27,8 @@ import Types.User
 import Types.Post
 
 
-data Submissions = Asks | Links | Submissions
-                 deriving (Read, Show, Eq, Ord, Typeable, Data)
 
-data PostSort = New | Top
-              deriving (Read, Show, Eq, Ord, Typeable, Data)
-
-type PageNumber = Word32
+type PageNumber = Int
 
 data Route = R_Submissions Submissions PostSort PageNumber (Maybe UserName)
            | R_Comments PostSort PageNumber UserName

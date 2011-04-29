@@ -1,10 +1,12 @@
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
 
-module Pages ( 
-    dispatch
-  ) where
+module Pages
+       ( dispatch
+       ) where
 
 
+import Data.Time.Clock         (getCurrentTime)
+  
 import HSP
 
 import Happstack.Server
@@ -13,8 +15,9 @@ import Text.Digestive.Forms.Happstack
 
 import Web.Routes.Happstack
 
+import Crypto.PasswordStore
+
 import Types
-import DB
 import Pages.Common
 import Pages.Post
 import Pages.User
@@ -27,7 +30,7 @@ import Auth
 dispatch :: Route -> PageM Response
 
 dispatch r@(R_Post id' psort) = do
-  post <- query (getPost id') >>= \postM -> case postM of
+  post <- postQuery (GetPost id') >>= \postM -> case postM of
     Nothing -> notFoundError
     Just p  -> return p
   resp' <- eitherHappstackForm commentForm "commentForm"
@@ -39,8 +42,8 @@ dispatch r@(R_Post id' psort) = do
         Just _  -> postPage [renderForm form "Comment"] post psort
     Right comment -> checkUser anyUser $ \user -> do
       case post of
-        Left s -> query $ newComment (uName user) comment (sId s) s
-        Right c -> query $ newComment (uName user) comment (cSubmission c) c
+        Left s -> dbTime postUpdate $ NewComment (uName user) comment (sId s) (sId s)
+        Right c -> dbTime postUpdate $ NewComment (uName user) comment (cSubmission c) (cId c)
       seeOtherURL r
 
 dispatch R_Login = do
@@ -66,18 +69,15 @@ dispatch R_Submit =
                      Nothing -> serverError "Received invalid url from the submit form."
                      Just d  -> return $ Link link d
                    else return $ Ask ask
-        submission <- query $ newSubmission (uName user) title content
+        submission <- dbTime postUpdate $ NewSubmission (uName user) title content
         seeOtherURL $ R_Post (sId submission) Top
 
 dispatch R_Logout = expireSession >> redirectPageReferer
 
 dispatch (R_Vote id' up) = do
-  post <- query (getPost id') >>= maybe notFoundError return
-  checkUser (checkIfVoter post) $ \user -> query (votePost post up user) >>
-                                           redirectPageReferer
-  where
-    checkIfVoter (Left s) user  = not (uName user `elem` sVoters s)
-    checkIfVoter (Right c) user = not (uName user `elem` cVoters c)
+  post <- postQuery (GetPost id') >>= maybe notFoundError return
+  checkUser anyUser $ \user -> postUpdate (VotePost post up user) >>
+                               redirectPageReferer
 
 
 dispatch (R_Submissions submissions psort page userM) =
@@ -93,7 +93,15 @@ dispatch R_Register = do
       case resp' of
         Left form -> registerPage form
         Right (userName, password, _) -> do
-          query $ newUser userName password Member ""
+          hashedPassword <- liftIO $ makePassword password hashStrength
+          time <- liftIO getCurrentTime
+          let user' = User { uName = userName
+                           , uPassword = hashedPassword
+                           , uRank = Member
+                           , uAbout = ""
+                           , uCreated = time
+                           }
+          userUpdate $ NewUser user'
           makeSession userName
           redirectPage
 
@@ -104,11 +112,12 @@ dispatch R_CP =
       Left form -> cpPage form
       Right (about, _, new, _) -> do
         let user' = user {uAbout = about, uPassword = new}
-        query $ updateUser user'
+        userUpdate $ UpdateUser user'
         seeOtherURL R_CP
 
 
-dispatch (R_User userName) = query (getUser userName) >>= maybe notFoundError userPage
+dispatch (R_User userName) =
+  userQuery (GetUser userName) >>= maybe notFoundError userPage
           
   
 dispatch _ = render $ template ("", Nothing, [<h2> not yet implemented </h2>])

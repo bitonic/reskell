@@ -1,26 +1,31 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts, TypeFamilies #-}
 
-module Types.App (
-    AppM
-  , unpackApp
-  , AppError (..)
-  , notFoundError
-  , serverError
-  , databaseError
-  , forbiddenError
-  , PageM
-  , TemplateM
+module Types.App
+       ( AppM
+       , unpackApp
+       , AppError (..)
+       , notFoundError
+       , serverError
+       , forbiddenError
+       , PageM
+       , TemplateM
+         
     
-    
-  , Context (..)
-  , MonadContext (..)
-  , askContext
-    
-  -- ** Stuff that's often useful  
-  , MonadError
-  , MonadIO
-  , ReaderT
-  ) where
+       , Context (..)
+       , MonadContext (..)
+       , askContext
+         
+       , userQuery
+       , userUpdate
+       , postQuery
+       , postUpdate
+       , dbTime
+       -- ** Stuff that's often useful  
+       , MonadError
+       , MonadIO
+       , ReaderT
+       , liftIO
+       ) where
 
 
 
@@ -29,16 +34,16 @@ import Control.Monad.Trans
 import Control.Monad.Reader
 import Control.Monad.Error
 
-import Data.Time.Clock         (UTCTime)
-
+import Data.Acid
+import Data.Time.Clock
+  
 import Happstack.Server hiding (Host)
-
-import Database.MongoDB        (Database (..), ConnPool, Failure, Service)
 
 import Web.Routes              (RouteT)
 
 import HSP                     (XMLGenT)
 import qualified HSX.XMLGenerator as HSX
+
 
 
 -- instances
@@ -52,18 +57,17 @@ import Happstack.Server.HSX    ()
 
 
 import Types.User
+import Types.Post
 import Types.Route
 
 
-data Context = forall s. Service s => Context { database     :: Database
-                                        , connPool     :: ConnPool s
-                                        , sessionUser  :: Maybe User
-                                        , scoringStart :: UTCTime
-                                        }
+data Context = Context { sessionUser :: Maybe User
+                       , postDB      :: AcidState PostDB
+                       , userDB      :: AcidState UserDB
+                       }
 
 
-data AppError = DatabaseError Failure
-              | NotFound
+data AppError = NotFound
               | ServerError String
               | Forbidden
               | OtherError String
@@ -79,8 +83,6 @@ notFoundError  :: MonadError AppError m => m a
 notFoundError  = throwError NotFound
 serverError    :: MonadError AppError m => String -> m a
 serverError    = throwError . ServerError
-databaseError  :: MonadError AppError m => Failure -> m a
-databaseError  = throwError . DatabaseError
 forbiddenError :: MonadError AppError m => m a
 forbiddenError = throwError Forbidden
 
@@ -122,6 +124,49 @@ instance MonadContext m => MonadContext (XMLGenT (RouteT url m)) where
 
 askContext :: MonadContext m => (Context -> r) -> m r
 askContext = (`liftM` getContext)
+
+
+ctxUpdate :: (MonadContext m, UpdateEvent event, MonadIO m)
+             => (Context -> AcidState (EventState event))
+             -> event
+             -> m (EventResult event)
+ctxUpdate db e = askContext db >>= \es -> update' es e
+ctxQuery :: (MonadContext m, QueryEvent event, MonadIO m)
+            => (Context -> AcidState (EventState event))
+            -> event
+            -> m (EventResult event)
+ctxQuery db e = askContext db >>= \es -> query' es e
+
+userQuery :: ( MonadContext m
+            , MonadIO m
+            , QueryEvent event
+            , EventState event ~ UserDB
+            ) => event -> m (EventResult event)
+userQuery = ctxQuery userDB
+userUpdate :: ( MonadContext m
+             , MonadIO m
+             , UpdateEvent event
+             , EventState event ~ UserDB
+             ) => event -> m (EventResult event)
+userUpdate = ctxUpdate userDB
+
+postQuery :: ( MonadContext m
+            , MonadIO m
+            , QueryEvent event
+            , EventState event ~ PostDB
+            ) => event -> m (EventResult event)
+postQuery = ctxQuery postDB
+postUpdate :: ( MonadContext m
+             , MonadIO m
+             , UpdateEvent event
+             , EventState event ~ PostDB
+             ) => event -> m (EventResult event)
+postUpdate = ctxUpdate postDB
+
+dbTime :: MonadIO m => (t -> m b) -> (UTCTime -> t) -> m b
+dbTime q act = do
+  time <- liftIO getCurrentTime
+  q (act time)
 
 
 type PageM = RouteT Route AppM

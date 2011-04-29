@@ -1,11 +1,11 @@
 -- Code almost unchanged from the guestbook example.
 
-module Logger (
-    LoggerHandle
-  , setupLogger
-  , teardownLogger
-  , withLogger
-  ) where
+module Logger
+       ( LoggerHandle
+       , setupLogger
+       , teardownLogger
+       , withLogger
+       ) where
 
 import Control.Exception.Extensible (bracket)
 
