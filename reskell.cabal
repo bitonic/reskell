@@ -36,7 +36,6 @@ executable reskell
                    , happstack-state >= 6
                    , happstack-util >= 0.6
                    , hashable
-                   , hashmap
                    , hslogger >= 1.1
                    , hsp >= 0.6.1
                    , hsx >= 0.9
@@ -47,8 +46,9 @@ executable reskell
                    , safecopy
                    , template-haskell
                    , time >= 1.2.0.3
+                   , unordered-containers >= 0.1.2
                    , web-routes >= 0.24.1
                    , web-routes-happstack >= 0.22.1
                    , web-routes-hsp >= 0.21.3
 
-  GHC-options:       -Wall -fno-warn-unused-do-bind -threaded
+  GHC-options:       -Wall -fno-warn-unused-do-bind -threaded -optl-static -optl-pthread

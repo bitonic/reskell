@@ -30,8 +30,8 @@ import Types.Post
 
 type PageNumber = Int
 
-data Route = R_Submissions Submissions PostSort PageNumber (Maybe UserName)
-           | R_Comments PostSort PageNumber UserName
+data Route = R_Submissions Submissions PageNumber (Maybe UserName) PostSort
+           | R_Comments PageNumber UserName PostSort
            | R_Post PostId PostSort
            | R_Vote PostId Bool
            | R_Submit
@@ -44,16 +44,16 @@ data Route = R_Submissions Submissions PostSort PageNumber (Maybe UserName)
            deriving (Read, Show, Eq, Ord, Typeable, Data)
 
 home :: Route
-home = R_Submissions Submissions Top 0 Nothing
+home = R_Submissions Submissions 0 Nothing Top
 
 
 instance PathInfo Route where
-  toPathSegments (R_Submissions submissions psort page userM) =
+  toPathSegments (R_Submissions submissions page userM psort) =
     case userM of
-      Nothing -> ["submissions", show submissions, show psort, show page]
-      Just user -> ["submissions", show submissions, show psort, show page, user]
-  toPathSegments (R_Comments psort page user) =
-    ["comments", show psort, show page, user]
+      Nothing -> ["submissions", show submissions, show page, show psort]
+      Just user -> ["submissions", show submissions, show page, show psort, user]
+  toPathSegments (R_Comments page user psort) =
+    ["comments", show page, user, show psort]
   toPathSegments (R_Post id' psort) = ["post", show id', show psort]
   toPathSegments (R_Vote id' up)    = ["vote", show id', show up]
   toPathSegments  R_Submit          = ["submit"]
@@ -69,7 +69,11 @@ instance PathInfo Route where
   -- url.
   fromPathSegments =
     msum [ do segment "submissions"
-              R_Submissions <$> readSegment <*> readSegment <*> readSegment <*> optionMaybe anySegment
+              submissions <- readSegment
+              page <- readSegment
+              psort <- readSegment
+              user <- optionMaybe anySegment
+              return $ R_Submissions submissions page user psort
          , do segment "comments"
               R_Comments <$> readSegment <*> readSegment <*> readSegment
          , do segment "post"
@@ -78,7 +82,7 @@ instance PathInfo Route where
               R_Vote <$> readSegment <*> readSegment
          , segment "submit" >> return R_Submit
          , do segment "user"
-              liftM R_User anySegment
+              R_User <$> anySegment
          , do segment "login"
               return R_Login
          , do segment "logout"

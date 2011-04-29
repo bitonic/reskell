@@ -111,16 +111,16 @@ data Submission = Submission { sId        :: PostId
                              }
                 deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-newtype ScoreIx  = ScoreIx Double
-                 deriving (Eq, Ord, Data, Typeable)
-newtype TimeIx   = TimeIx UTCTime
-                 deriving (Eq, Ord, Data, Typeable)
-newtype IdIx     = IdIx PostId
-                 deriving (Eq, Ord, Data, Typeable)
+newtype ScoreIx = ScoreIx Double
+                deriving (Eq, Ord, Data, Typeable)
+newtype TimeIx = TimeIx UTCTime
+               deriving (Eq, Ord, Data, Typeable)
+newtype IdIx = IdIx PostId
+             deriving (Eq, Ord, Data, Typeable)
 newtype ParentIx = ParentIx PostId
                  deriving (Eq, Ord, Data, Typeable)
-data    STypeIx  = AskT | LinkT
-                 deriving (Eq, Ord, Data, Typeable)
+data STypeIx = AskT | LinkT
+             deriving (Eq, Ord, Data, Typeable)
 
 instance Indexable Submission where
   empty = ixSet [ ixFun (\s -> [TimeIx     (sTime s)])
@@ -147,8 +147,8 @@ data Comment = Comment { cId         :: PostId
                        , cText       :: String
                        , cVotesUp    :: PostVoters
                        , cVotesDown  :: PostVoters
-                       , cParent     :: Int
-                       , cSubmission :: Int
+                       , cParent     :: PostId
+                       , cSubmission :: PostId
                        , cScore      :: Double
                        }
              deriving (Eq, Ord, Show, Read, Data, Typeable)
@@ -307,23 +307,41 @@ getComments psort parentIdM userM = do
   comments <- asks commentSet
   return (sortIx psort . parentSel parentIdM . userSel userM $ comments)
   
+
+votePost' :: Post a => a -> User -> Bool -> (a -> a) -> (a -> a) -> (a -> a) -> (a -> a) -> a
+votePost' post user up unVoteUp voteUp unVoteDown voteDown = f post
+  where
+    userName  = uName user
+    votesUp   = pVotesUp post
+    votesDown = pVotesDown post
+    votedUp   = S.member userName votesUp
+    votedDown = S.member userName votesDown
+    f | up && votedUp   = unVoteUp
+      | up && votedDown = unVoteDown . voteUp
+      | up             = voteUp
+      | votedDown      = unVoteDown
+      | votedUp        = unVoteUp . voteDown
+      | otherwise      = voteDown
+
 voteSubmission :: Submission -> Bool -> User -> Update PostDB ()
 voteSubmission submission up user = do
-  let submission' =
-        if up
-        then submission {sVotesUp   = S.insert (uName user) (sVotesUp submission)}
-        else submission {sVotesDown = S.insert (uName user) (sVotesDown submission)}
+  let unVoteUp    = \s -> s {sVotesUp   = S.delete (uName user) (sVotesUp s)}
+      voteUp      = \s -> s {sVotesUp   = S.insert (uName user) (sVotesUp s)}
+      unVoteDown  = \s -> s {sVotesDown = S.delete (uName user) (sVotesDown s)}
+      voteDown    = \s -> s {sVotesDown = S.insert (uName user) (sVotesDown s)}
+      submission' = votePost' submission user up unVoteUp voteUp unVoteDown voteDown
   score <- runQuery $ scoreSubmission submission'
   let submission'' = submission' {sScore = score}
   modify (\s -> s {submissionSet = Ix.updateIx (IdIx (sId submission)) submission'' (submissionSet s)})
 
 voteComment :: Comment -> Bool -> User -> Update PostDB ()
 voteComment comment up user = do
-  let comment' =
-        if up
-        then comment {cVotesUp   = S.insert (uName user) (cVotesUp comment)}
-        else comment {cVotesDown = S.insert (uName user) (cVotesDown comment)}
-      comment'' = comment' {cScore = scoreComment comment'}
+  let unVoteUp    = \c -> c {cVotesUp   = S.delete (uName user) (cVotesUp c)}
+      voteUp      = \c -> c {cVotesUp   = S.insert (uName user) (cVotesUp c)}
+      unVoteDown  = \c -> c {cVotesDown = S.delete (uName user) (cVotesDown c)}
+      voteDown    = \c -> c {cVotesDown = S.insert (uName user) (cVotesDown c)}
+      comment'    = votePost' comment user up unVoteUp voteUp unVoteDown voteDown
+      comment''   = comment' {cScore = scoreComment comment'}
   modify (\s -> s {commentSet = Ix.updateIx (IdIx (cId comment)) comment'' (commentSet s)})
   
   

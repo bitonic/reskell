@@ -77,8 +77,8 @@ dispatch R_Logout = expireSession >> redirectPageReferer
 dispatch (R_Vote id' up) =
   checkUser anyUser $ \user -> postUpdate (VotePost id' up user) >> redirectPageReferer
 
-dispatch (R_Submissions submissions psort page userM) =
-  submissionsPage submissions psort page userM
+dispatch (R_Submissions submissions page userM psort) =
+  submissionsPage submissions page userM psort
 
 
 dispatch R_Register = do
@@ -108,7 +108,8 @@ dispatch R_CP =
     case resp' of
       Left form -> cpPage form
       Right (about, _, new, _) -> do
-        let user' = user {uAbout = about, uPassword = new}
+        hashedPassword <- liftIO $ makePassword new hashStrength
+        let user' = user {uAbout = about, uPassword = hashedPassword}
         userUpdate $ UpdateUser user'
         seeOtherURL R_CP
 
@@ -116,5 +117,5 @@ dispatch R_CP =
 dispatch (R_User userName) =
   userQuery (GetUser userName) >>= maybe notFoundError userPage
           
-  
+
 dispatch _ = render $ template ("", Nothing, [<h2> not yet implemented </h2>])

@@ -23,6 +23,7 @@ import Types
 import Pages.Common
 
 
+
 showTimeDiff :: UTCTime -> UTCTime -> String
 showTimeDiff t1 t2 | diff < min'  = " just now"
                    | diff < hour  = plural "minute" $ diff /// min'
@@ -157,13 +158,28 @@ submissionLink s listing =
   </div>
       
 
+commentsSortLinks :: (PostSort -> Route) -> PostSort -> [TemplateM]
+commentsSortLinks proute psort =
+  <span>comments sorted by: </span> : links
+  where
+    links = case psort of
+      New -> [ <a href=(proute Top) class="commentSort">top</a>
+            , <span><% separator %></span>
+            , <span>new</span>
+            ]
+      Top -> [ <span>top</span>
+            , <span><% separator %></span>
+            , <a href=(proute New) class="commentSort">new</a>
+            ]
+    
 postPage :: [TemplateM] -> Either Submission Comment -> PostSort -> PageM Response
 postPage form (Left p) psort = do
   comments <- postQuery $ GetComments psort (Just $ pId p) Nothing
   render $ template (sTitle p, Nothing, content comments)
   where
     content comments = submissionLink p False : text ++
-                       form ++ [renderComments comments psort]
+                       form ++ commentsSortLinks (R_Post (pId p)) psort ++
+                       [renderComments comments psort]
 
     text = case sContent p of
       Ask t -> [<div class="postText"><% t %></div>]
@@ -178,7 +194,8 @@ postPage form (Right p) psort = do
     ( truncateText (cText p) 200
     , Nothing
     , commentDetails p (Just s) psort : <div class="postText"><% cText p %></div> :
-       form ++ [renderComments comments psort]
+       form ++ commentsSortLinks (R_Post (pId p)) psort ++
+       [renderComments comments psort]
     )
 
 
@@ -192,15 +209,31 @@ submitPage form = render $ template $
                   )
 
 
+listingSortLinks :: (PostSort -> Route) -> PostSort -> TemplateM
+listingSortLinks proute psort =
+  <div id="listingSort">
+    <% case psort of
+         Top -> [ <span class="activeSort">top</span>
+               , <span><% separator %></span>
+               , <a href=(proute New)>new</a>
+               ]
+         New -> [ <a href=(proute Top)>top</a>
+               , <span><% separator %></span>
+               , <span class="activeSort">new</span>
+               ]
+    %>
+  </div>
+
 submissionsPage :: Submissions
-                   -> PostSort
                    -> PageNumber
                    -> Maybe UserName
+                   -> PostSort
                    -> PageM Response
-submissionsPage submissions psort page userM = do
+submissionsPage submissions page userM psort = do
   posts <- postQuery $ GetSubmissions submissions psort postsPerPage (postsPerPage * page) userM
   render $ template $
     ( show submissions ++ " - " ++ show psort
     , Nothing
-    , map (`submissionLink` True ) posts
+    , listingSortLinks (R_Submissions submissions page userM) psort :
+      map (`submissionLink` True ) posts
     )

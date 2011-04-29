@@ -51,9 +51,9 @@ template (title, heading, content) =
         <div id="header">
           <h1><a href=(home)>Reskell</a></h1>
           
-          <a href=(R_Submissions Asks Top 0 Nothing)>ask</a>
+          <a href=(R_Submissions Asks 0 Nothing Top)>ask</a>
           <% separator %>
-          <a href=(R_Submissions Links Top 0 Nothing)>links</a>
+          <a href=(R_Submissions Links 0 Nothing Top)>links</a>
           <% separator %>
           <a href=(R_Submit)>submit</a>
 

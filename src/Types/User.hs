@@ -1,32 +1,32 @@
 {-# Language TemplateHaskell, DeriveDataTypeable, TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Types.User (
-    -- * Types definitions
-    UserRank (..)
-  , User (..)
-  , UserNameIx (..)
-  , RankIx (..)
-  , CreatedIx (..)
-  , UserName
-  , Password
-  , SessionId
-  , Session (..)
-  , genSessionId
-  , sessionCookie
-  , UserDB (..)
-  , hashStrength
-    
-    -- * Query / Updates
-  , openUserDB
-  , NewUser (..)
-  , GetUser (..)
-  , UpdateUser (..)
-    
-  , NewSession (..)
-  , CheckSession (..)
-  , DeleteSession (..)
-  ) where
+module Types.User
+       ( -- * Types definitions
+         UserRank (..)
+       , User (..)
+       , UserNameIx (..)
+       , RankIx (..)
+       , CreatedIx (..)
+       , UserName
+       , Password
+       , SessionId
+       , Session (..)
+       , genSessionId
+       , sessionCookie
+       , UserDB (..)
+       , hashStrength
+         
+         -- * Query / Updates
+       , openUserDB
+       , NewUser (..)
+       , GetUser (..)
+       , UpdateUser (..)
+         
+       , NewSession (..)
+       , CheckSession (..)
+       , DeleteSession (..)
+       ) where
 
 
 import Control.Monad.Reader
@@ -39,8 +39,8 @@ import Data.Data               (Data, Typeable)
 import Data.Time.Clock         (UTCTime)
 import Data.ByteString         (ByteString)
 import qualified Data.ByteString.Char8 as B8
-import Data.HashMap            (HashMap)
-import qualified Data.HashMap as HM
+import Data.HashMap.Strict     (HashMap)
+import qualified Data.HashMap.Strict as HM
 import Data.Acid
 
 import Data.SafeCopy
