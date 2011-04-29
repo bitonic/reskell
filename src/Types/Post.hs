@@ -309,25 +309,29 @@ getComments psort parentIdM userM = do
   
 voteSubmission :: Submission -> Bool -> User -> Update PostDB ()
 voteSubmission submission up user = do
-  let submission' = if up
-                    then submission {sVotesUp   = S.insert (uName user) (sVotesUp submission)}
-                    else submission {sVotesDown = S.insert (uName user) (sVotesDown submission)}
+  let submission' =
+        if up
+        then submission {sVotesUp   = S.insert (uName user) (sVotesUp submission)}
+        else submission {sVotesDown = S.insert (uName user) (sVotesDown submission)}
   score <- runQuery $ scoreSubmission submission'
   let submission'' = submission' {sScore = score}
   modify (\s -> s {submissionSet = Ix.updateIx (IdIx (sId submission)) submission'' (submissionSet s)})
 
 voteComment :: Comment -> Bool -> User -> Update PostDB ()
 voteComment comment up user = do
-  let comment' = if up
-                 then comment {cVotesUp   = S.insert (uName user) (cVotesUp comment)}
-                 else comment {cVotesDown = S.insert (uName user) (cVotesDown comment)}
+  let comment' =
+        if up
+        then comment {cVotesUp   = S.insert (uName user) (cVotesUp comment)}
+        else comment {cVotesDown = S.insert (uName user) (cVotesDown comment)}
       comment'' = comment' {cScore = scoreComment comment'}
   modify (\s -> s {commentSet = Ix.updateIx (IdIx (cId comment)) comment'' (commentSet s)})
   
   
-votePost :: Either Submission Comment -> Bool -> User -> Update PostDB ()
-votePost (Left submission) up user = voteSubmission submission up user
-votePost (Right comment)   up user = voteComment comment up user
+votePost :: PostId -> Bool -> User -> Update PostDB ()
+votePost id' up user = do
+  p <- runQuery $ getPost id'
+  maybe (return ())
+    (either (\s -> voteSubmission s up user) (\c -> voteComment c up user)) p
 
 countComments :: PostId -> Query PostDB Int
 countComments pId' = liftM (Ix.size . (@= ParentIx pId')) $ asks commentSet

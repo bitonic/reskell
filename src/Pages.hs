@@ -74,11 +74,8 @@ dispatch R_Submit =
 
 dispatch R_Logout = expireSession >> redirectPageReferer
 
-dispatch (R_Vote id' up) = do
-  post <- postQuery (GetPost id') >>= maybe notFoundError return
-  checkUser anyUser $ \user -> postUpdate (VotePost post up user) >>
-                               redirectPageReferer
-
+dispatch (R_Vote id' up) =
+  checkUser anyUser $ \user -> postUpdate (VotePost id' up user) >> redirectPageReferer
 
 dispatch (R_Submissions submissions psort page userM) =
   submissionsPage submissions psort page userM
