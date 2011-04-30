@@ -1,26 +1,33 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, TypeFamilies #-}
 
 module Types.App
-       ( AppM
-       , unpackApp
+       ( -- * The Context
+         Context (..)
+       , MonadContext (..)
+       , askContext
+
+         -- * Error reporting
        , AppError (..)
        , notFoundError
        , serverError
        , forbiddenError
+         
+         -- * The application monads
+       , AppM
+       , unpackApp
        , PageM
        , TemplateM
          
     
-       , Context (..)
-       , MonadContext (..)
-       , askContext
-         
+         -- * Utilities to query the DBs
        , userQuery
        , userUpdate
        , postQuery
        , postUpdate
        , dbTime
-       -- ** Stuff that's often useful  
+
+         
+       -- * Various useful exports
        , MonadError
        , MonadIO
        , ReaderT
@@ -61,52 +68,17 @@ import Types.Post
 import Types.Route
 
 
+
+
+-- | The application context. Holds the 'PostDB' and 'UserDB'
+-- 'AcidState's and an 'User', if the visitor is logged in.
 data Context = Context { sessionUser :: Maybe User
                        , postDB      :: AcidState PostDB
                        , userDB      :: AcidState UserDB
                        }
 
 
-data AppError = NotFound
-              | ServerError String
-              | Forbidden
-              | OtherError String
-              deriving (Show)
-
-instance Error AppError where
-  noMsg  = OtherError ""
-  strMsg = OtherError
-
-type AppM = ServerPartT (ErrorT AppError (ReaderT Context IO))
-
-notFoundError  :: MonadError AppError m => m a
-notFoundError  = throwError NotFound
-serverError    :: MonadError AppError m => String -> m a
-serverError    = throwError . ServerError
-forbiddenError :: MonadError AppError m => m a
-forbiddenError = throwError Forbidden
-
-
-unpackApp :: Context
-             -> UnWebT (ErrorT AppError (ReaderT Context IO)) a
-             -> UnWebT IO a
-unpackApp context = unpackContext . unpackError
-  where
-    unpackContext ct = runReaderT ct context
-
-    unpackError et = do
-      eitherV <- runErrorT et
-      return $ case eitherV of
-        Left err -> Just (Left $ toResponse $ 
-                          "Catastrophic failure: " ++ show err,
-                          filterFun $ \r -> r { rsCode = getCode err })
-        Right x -> x
-  
-    getCode NotFound  = 400
-    getCode Forbidden = 403
-    getCode _         = 500
-
-
+-- | A 'Monad' with a context in it
 class Monad m => MonadContext m where
   getContext :: m Context
 
@@ -126,6 +98,65 @@ askContext :: MonadContext m => (Context -> r) -> m r
 askContext = (`liftM` getContext)
 
 
+
+-------------------------------------------------------------------------------
+
+-- | Data type to invoke errors easily anywhere in the application
+data AppError = NotFound
+              | ServerError String
+              | Forbidden
+              | OtherError String
+              deriving (Show)
+
+instance Error AppError where
+  noMsg  = OtherError ""
+  strMsg = OtherError
+
+
+notFoundError  :: MonadError AppError m => m a
+notFoundError  = throwError NotFound
+serverError    :: MonadError AppError m => String -> m a
+serverError    = throwError . ServerError
+forbiddenError :: MonadError AppError m => m a
+forbiddenError = throwError Forbidden
+
+
+-------------------------------------------------------------------------------
+
+-- | The main 'Monad' of the application
+type AppM = ServerPartT (ErrorT AppError (ReaderT Context IO))
+
+-- | Transforms 'AppM' to a 'ServerPartT IO'
+unpackApp :: Context
+             -> UnWebT (ErrorT AppError (ReaderT Context IO)) a
+             -> UnWebT IO a
+-- Runs the 'ErrorT' and the 'ReaderT'
+unpackApp context = unpackContext . unpackError
+  where
+    unpackContext ct = runReaderT ct context
+
+    -- Error reporting, one day it will be better
+    unpackError et = do
+      eitherV <- runErrorT et
+      return $ case eitherV of
+        Left err -> Just (Left $ toResponse $ 
+                          "Catastrophic failure: " ++ show err,
+                          filterFun $ \r -> r { rsCode = getCode err })
+        Right x -> x
+
+    getCode NotFound  = 400
+    getCode Forbidden = 403
+    getCode _         = 500
+
+
+-- Monads relevant to the routing and templating
+type PageM = RouteT Route AppM
+type TemplateM = XMLGenT PageM (HSX.XML PageM)
+
+
+-------------------------------------------------------------------------------
+
+
 ctxUpdate :: (MonadContext m, UpdateEvent event, MonadIO m)
              => (Context -> AcidState (EventState event))
              -> event
@@ -137,12 +168,15 @@ ctxQuery :: (MonadContext m, QueryEvent event, MonadIO m)
             -> m (EventResult event)
 ctxQuery db e = askContext db >>= \es -> query' es e
 
+-- | Queries 'UserDB'
 userQuery :: ( MonadContext m
             , MonadIO m
             , QueryEvent event
             , EventState event ~ UserDB
             ) => event -> m (EventResult event)
 userQuery = ctxQuery userDB
+
+-- | Updates 'UserDB'
 userUpdate :: ( MonadContext m
              , MonadIO m
              , UpdateEvent event
@@ -150,12 +184,16 @@ userUpdate :: ( MonadContext m
              ) => event -> m (EventResult event)
 userUpdate = ctxUpdate userDB
 
+
+-- | Queries 'PostDB'
 postQuery :: ( MonadContext m
             , MonadIO m
             , QueryEvent event
             , EventState event ~ PostDB
             ) => event -> m (EventResult event)
 postQuery = ctxQuery postDB
+
+-- | Updates 'PostDB'
 postUpdate :: ( MonadContext m
              , MonadIO m
              , UpdateEvent event
@@ -163,11 +201,8 @@ postUpdate :: ( MonadContext m
              ) => event -> m (EventResult event)
 postUpdate = ctxUpdate postDB
 
+-- | Wrapper for acid-state functions that need the time.
 dbTime :: MonadIO m => (t -> m b) -> (UTCTime -> t) -> m b
 dbTime q act = do
   time <- liftIO getCurrentTime
   q (act time)
-
-
-type PageM = RouteT Route AppM
-type TemplateM = XMLGenT PageM (HSX.XML PageM)

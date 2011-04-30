@@ -1,11 +1,11 @@
 {-# LANGUAGE FlexibleContexts, TypeFamilies #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
 
-module Pages.Post (
-    postPage
-  , submitPage
-  , submissionsPage
-  ) where
+module Pages.Post
+       ( postPage
+       , submitPage
+       , submissionsPage
+       ) where
 
 
 import Data.Time.Clock
@@ -24,6 +24,8 @@ import Pages.Common
 
 
 
+
+-- | Function that shows a message like "4 minutes ago"
 showTimeDiff :: UTCTime -> UTCTime -> String
 showTimeDiff t1 t2 | diff < min'  = " just now"
                    | diff < hour  = plural "minute" $ diff /// min'
@@ -49,6 +51,7 @@ showTimeDiff t1 t2 | diff < min'  = " just now"
               | otherwise = " "    
 
 
+-- Displays the message "posted by xxx 6 minutes ago"
 whenPosted :: Post a => a -> GenChildList PageM
 whenPosted p =
   <%>
@@ -58,6 +61,8 @@ whenPosted p =
     %>
   </%>
 
+
+-- Renders a comment
 renderComment :: Comment -> PostSort -> TemplateM
 renderComment comment psort = do
   { comments <- postQuery $ GetComments psort (Just $ cId comment) Nothing
@@ -75,9 +80,11 @@ renderComment comment psort = do
     </div>
   }
 
+
 renderComments :: [Comment] -> PostSort -> TemplateM
 renderComments cs psort =
   <div class="comments"><% map (`renderComment` psort) cs %></div >
+
 
 submissionDetails :: Submission -> Bool -> TemplateM
 submissionDetails s listing = do
@@ -96,6 +103,7 @@ submissionDetails s listing = do
     comments 0 = "discuss"
     comments 1 = "1 comment"
     comments n = show n ++ " comment"
+
 
 commentDetails :: Comment -> Maybe Submission -> PostSort -> TemplateM
 commentDetails c sM psort =
@@ -118,9 +126,11 @@ commentDetails c sM psort =
     %>
   </div>
 
+
 truncateText :: String -> Int -> String
 truncateText t n | length t < n = t 
                  | otherwise    = take n t ++ "..."
+
 
 voteArrows :: Post a => a -> TemplateM
 voteArrows p = do
@@ -142,6 +152,7 @@ voteArrows p = do
          </a>
     </div>
   }
+
 
 submissionLink :: Submission -> Bool -> TemplateM
 submissionLink s listing =
@@ -171,6 +182,8 @@ commentsSortLinks proute psort =
             , <span><% separator %></span>
             , <a href=(proute New) class="commentSort">new</a>
             ]
+
+
     
 postPage :: [TemplateM] -> Either Submission Comment -> PostSort -> PageM Response
 postPage form (Left p) psort = do
@@ -184,8 +197,6 @@ postPage form (Left p) psort = do
     text = case sContent p of
       Ask t -> [<div class="postText"><% t %></div>]
       _     -> []
-
-
 postPage form (Right p) psort = do
   sM <- postQuery $ GetSubmission (cSubmission p)
   s <- maybe (serverError "Could not find comment's submission in the db.") return sM

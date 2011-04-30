@@ -27,19 +27,28 @@ import Auth
 
 
 
+-- | Landing functions, that gets the 'Route' and returns the
+-- 'Response'.
 dispatch :: Route -> PageM Response
 
 dispatch r@(R_Post id' psort) = do
+  -- 404 if we can't find the post
   post <- postQuery (GetPost id') >>= \postM -> case postM of
     Nothing -> notFoundError
     Just p  -> return p
+  
+  -- Process the form
   resp' <- eitherHappstackForm commentForm "commentForm"
   case resp' of
     Left form -> do
+      -- Gets the user
       userM <- askContext sessionUser
       case userM of
+        -- If there is no user, don't display the form
         Nothing -> postPage [] post psort
         Just _  -> postPage [renderForm form "Comment"] post psort
+    
+    -- Check that we have a user, and add the comment
     Right comment -> checkUser anyUser $ \user -> do
       case post of
         Left s -> dbTime postUpdate $ NewComment (uName user) comment (sId s) (sId s)
@@ -64,6 +73,9 @@ dispatch R_Submit =
     case resp' of
       Left form -> submitPage form
       Right (title, link, ask) -> do
+        -- Check that the url is valid. We check this in the form
+        -- itself as well, but we want to be safe from other POST
+        -- requests.
         content <- if null ask
                    then case getDomain link of
                      Nothing -> serverError "Received invalid url from the submit form."
@@ -90,6 +102,7 @@ dispatch R_Register = do
       case resp' of
         Left form -> registerPage form
         Right (userName, password, _) -> do
+          -- Hash the password
           hashedPassword <- liftIO $ makePassword password hashStrength
           time <- liftIO getCurrentTime
           let user' = User { uName = userName

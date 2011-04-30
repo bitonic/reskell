@@ -43,7 +43,10 @@ userPage user = render $ template
                   ] ++ (if null (uAbout user)
                         then []
                         else [<p><b>About:</b> <% uAbout user %></p>]) ++
-                  [ <p><b><a href=(R_Submissions Submissions 0 (Just (uName user)) Top)>Submissions</a></b>, <b><a href=(R_Comments 0 (uName user) Top)>Comments</a></b></p>
+                  [ <p>
+                      <b><a href=(R_Submissions Submissions 0 (Just (uName user)) Top)>Submissions</a></b>,
+                      <b><a href=(R_Comments 0 (uName user) Top)>Comments</a></b>
+                    </p>
                   ]
                 )
 

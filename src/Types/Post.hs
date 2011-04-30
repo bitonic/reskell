@@ -2,24 +2,28 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Types.Post
-       ( -- * Types definition
+       ( -- * Types
          PostId
+       , Post (..)       
        , SContent (..)
-       , getDomain
-       , Submission (..)
+       , Submission (..)       
        , Comment (..)
-       , Post (..)
+
+         -- * Indexes
        , ScoreIx (..)
        , TimeIx (..)
-       , STypeIx (..)
        , IdIx (..)
        , ParentIx (..)
-       , PostDB (..)
+         
+         -- * Sorting and selecting
        , PostSort (..)
        , Submissions (..)
+
+         -- * DB
+       , PostDB (..)
+       , openPostDB
          
          -- * Query / Updates
-       , openPostDB
        , NewSubmission (..)
        , NewComment (..)
        , GetPost (..)
@@ -30,6 +34,9 @@ module Types.Post
        , VoteComment (..)
        , VotePost (..)
        , CountComments (..)
+         
+         -- * Utils
+       , getDomain
        ) where
 
 import Control.Monad.Reader
@@ -61,9 +68,13 @@ import Types.Common            ()
 import Types.User
 
 
+
 type PostId = Int
+-- | Type to store the users who voted in a Post
 type PostVoters = Set UserName
 
+-- | Post type, mainly used to generalize functions that render stuff
+-- in Pages/, since 'Submission' and 'Comment' are really similar.
 class Post a where
   pId        :: a -> PostId
   pTime      :: a -> UTCTime
@@ -72,32 +83,10 @@ class Post a where
   pVotesUp   :: a -> PostVoters
 
 
+
+-- | Actual content of a 'Submission'.
 data SContent = Ask String | Link String String
               deriving (Eq, Ord, Show, Read, Data, Typeable)
-
-
-parseProtocol :: ParsecT String u Identity String
-parseProtocol = string "http://" <|> string "https://"
-
-parseDomain :: ParsecT String u Identity String
-parseDomain = do
-  parseProtocol
-  d1 <- liftM ('.' :) domainLetters
-  d2 <- domainSeg
-  rest <- manyTill domainSeg (eof <|> (char '/' >> return ()))
-  let all' = d1 : d2 : rest
-  return $ tail $ concat $ drop (length all' - 2) all'
-  where
-    domainSeg = do
-      char '.'
-      d <- domainLetters
-      return $ '.' : d
-    domainLetters = many1 $ oneOf $ ['-'] ++ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']
-
-getDomain :: String -> Maybe String
-getDomain url = case parse parseDomain "" url of
-  Right p -> Just p
-  Left _  -> Nothing
 
 
 data Submission = Submission { sId        :: PostId
@@ -111,35 +100,12 @@ data Submission = Submission { sId        :: PostId
                              }
                 deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-newtype ScoreIx = ScoreIx Double
-                deriving (Eq, Ord, Data, Typeable)
-newtype TimeIx = TimeIx UTCTime
-               deriving (Eq, Ord, Data, Typeable)
-newtype IdIx = IdIx PostId
-             deriving (Eq, Ord, Data, Typeable)
-newtype ParentIx = ParentIx PostId
-                 deriving (Eq, Ord, Data, Typeable)
-data STypeIx = AskT | LinkT
-             deriving (Eq, Ord, Data, Typeable)
-
-instance Indexable Submission where
-  empty = ixSet [ ixFun (\s -> [TimeIx     (sTime s)])
-                , ixFun (\s -> [UserNameIx (sUserName s)])
-                , ixFun (\s -> [ScoreIx    (sScore s)])
-                , ixFun (\s -> [IdIx       (sId s)])
-                , ixFun (\s -> case sContent s of
-                            Link _ _ -> [LinkT]
-                            Ask _    -> [AskT])
-                ]
-
 instance Post Submission where
   pId        = sId
   pTime      = sTime
   pUserName  = sUserName
   pVotesUp   = sVotesUp
   pVotesDown = sVotesDown
-
-
 
 data Comment = Comment { cId         :: PostId
                        , cUserName   :: String
@@ -153,6 +119,46 @@ data Comment = Comment { cId         :: PostId
                        }
              deriving (Eq, Ord, Show, Read, Data, Typeable)
   
+instance Post Comment where
+  pId        = cId
+  pTime      = cTime
+  pUserName  = cUserName
+  pVotesUp   = cVotesUp
+  pVotesDown = cVotesDown
+  
+  
+
+-- | Type to select 'Submission' based on their type, used in two
+-- context: in the 'Route' type, to select what to display, and as an
+-- index in the 'IxSet'.
+data Submissions = Asks | Links | Submissions
+                 deriving (Read, Show, Eq, Ord, Typeable, Data)
+
+-- | To decide the ordering in the 'Route'.
+data PostSort = New | Top
+              deriving (Read, Show, Eq, Ord, Typeable, Data)
+
+
+-- Various indexes to use in the 'IxSet'.
+newtype ScoreIx = ScoreIx Double
+                deriving (Eq, Ord, Data, Typeable)
+newtype TimeIx = TimeIx UTCTime
+               deriving (Eq, Ord, Data, Typeable)
+newtype IdIx = IdIx PostId
+             deriving (Eq, Ord, Data, Typeable)
+newtype ParentIx = ParentIx PostId
+                 deriving (Eq, Ord, Data, Typeable)
+
+instance Indexable Submission where
+  empty = ixSet [ ixFun (\s -> [TimeIx     (sTime s)])
+                , ixFun (\s -> [UserNameIx (sUserName s)])
+                , ixFun (\s -> [ScoreIx    (sScore s)])
+                , ixFun (\s -> [IdIx       (sId s)])
+                , ixFun (\s -> case sContent s of
+                            Link _ _ -> [Links]
+                            Ask _    -> [Asks])
+                ]
+
 instance Indexable Comment where
   empty = ixSet [ ixFun (\c -> [IdIx       (cId c)])
                 , ixFun (\c -> [TimeIx     (cTime c)])
@@ -161,26 +167,21 @@ instance Indexable Comment where
                 , ixFun (\c -> [ParentIx   (cParent c)])
                 ]
 
-instance Post Comment where
-  pId        = cId
-  pTime      = cTime
-  pUserName  = cUserName
-  pVotesUp   = cVotesUp
-  pVotesDown = cVotesDown
   
-data Submissions = Asks | Links | Submissions
-                 deriving (Read, Show, Eq, Ord, Typeable, Data)
-
-data PostSort = New | Top
-              deriving (Read, Show, Eq, Ord, Typeable, Data)
-
-
-
+-------------------------------------------------------------------------------
   
+-- | The 'AcidState' that holds the 'Post's.
 data PostDB = PostDB { submissionSet :: IxSet Submission
+                       -- ^ The set of 'Submission's
                      , commentSet    :: IxSet Comment
+                       -- ^ The set of comments
                      , scoringStart  :: UTCTime
+                       -- ^ This stores the time in which the scoring
+                       -- of the 'Post's has started, used in the
+                       -- scoring functions.
                      , postIdCounter :: PostId
+                       -- ^ A counter to assign a unique 'PostId' to
+                       -- the posts.
                      }
 
 $(deriveSafeCopy 0 'base ''SContent)
@@ -190,13 +191,17 @@ $(deriveSafeCopy 0 'base ''PostDB)
 $(deriveSafeCopy 0 'base ''Submissions)
 $(deriveSafeCopy 0 'base ''PostSort)
 
------------------------------------------------------------------------
-
+-- | This initializes the 'PostDB', if it hasn't initialized
+-- already. This function has to be called when the application
+-- starts.
 openPostDB :: FilePath -> IO (AcidState PostDB)  
 openPostDB fp = do
   now <- getCurrentTime
   openAcidStateFrom (fp </> "PostDB") $ PostDB Ix.empty Ix.empty now 0
   
+-----------------------------------------------------------------------
+
+-- | Increments the post counter atomically.
 incPostCounter :: Update PostDB PostId
 incPostCounter = do                  
   id' <- liftM ((+1) . postIdCounter) get
@@ -287,11 +292,13 @@ sortIx :: (Ix.Indexable a, Typeable a) => PostSort -> IxSet a -> [a]
 sortIx New = Ix.toDescList (Proxy :: Proxy TimeIx)
 sortIx Top = Ix.toDescList (Proxy :: Proxy ScoreIx)
 
+-- | Gets a list of submissions
 getSubmissions :: Submissions
-                  -> PostSort
-                  -> Int 
-                  -> Int 
-                  -> Maybe UserName 
+                  -> PostSort -- ^ The sort to use
+                  -> Int      -- ^ The number of submissions to return
+                  -> Int      -- ^ The number of submissions to skip
+                  -> Maybe UserName
+                  -- ^ If provided, only selects the submission by the user.
                   -> Query PostDB [Submission]
 getSubmissions listing psort l s userM = do
   submissions <- asks submissionSet
@@ -299,16 +306,37 @@ getSubmissions listing psort l s userM = do
   where
     stype = case listing of
       Submissions -> id
-      Asks -> (@= AskT)
-      Links -> (@= LinkT)
-      
-getComments :: PostSort -> Maybe PostId -> Maybe UserName -> Query PostDB [Comment]
+      Asks -> (@= Asks)
+      Links -> (@= Links)
+
+-- | Gets a list of 'Comment's.
+getComments :: PostSort
+               -> Maybe PostId
+               -- ^ If provided, only gets the comments to the 'PostId' post
+               -> Maybe UserName
+               -- ^ If provided, only gets the comment by the user
+               -> Query PostDB [Comment]
 getComments psort parentIdM userM = do
   comments <- asks commentSet
   return (sortIx psort . parentSel parentIdM . userSel userM $ comments)
   
 
-votePost' :: Post a => a -> User -> Bool -> (a -> a) -> (a -> a) -> (a -> a) -> (a -> a) -> a
+-- | Takes a post, a user, a bool to indicate whether the vote is up
+-- or down, and a list of functions that operate on the post to modify
+-- it accordingly, returns the voted post.
+-- If the user is voting up and has already voted up, the vote will be
+-- removed. If the user is voting up and has voted down the down vote
+-- will be removed, and the up vote will be added. The opposite
+-- applies for down votes.
+votePost' :: Post a
+             => a
+             -> User
+             -> Bool
+             -> (a -> a) -- ^ The function that removes the up vote
+             -> (a -> a) -- ^ The function the adds the up vote
+             -> (a -> a) -- ^ The function that removes the down vote
+             -> (a -> a) -- ^ The function that adds the down vote
+             -> a
 votePost' post user up unVoteUp voteUp unVoteDown voteDown = f post
   where
     userName  = uName user
@@ -329,9 +357,12 @@ voteSubmission submission up user = do
       voteUp      = \s -> s {sVotesUp   = S.insert (uName user) (sVotesUp s)}
       unVoteDown  = \s -> s {sVotesDown = S.delete (uName user) (sVotesDown s)}
       voteDown    = \s -> s {sVotesDown = S.insert (uName user) (sVotesDown s)}
+      -- Vote the submission
       submission' = votePost' submission user up unVoteUp voteUp unVoteDown voteDown
+  -- Get the new score
   score <- runQuery $ scoreSubmission submission'
   let submission'' = submission' {sScore = score}
+  -- Modify the set
   modify (\s -> s {submissionSet = Ix.updateIx (IdIx (sId submission)) submission'' (submissionSet s)})
 
 voteComment :: Comment -> Bool -> User -> Update PostDB ()
@@ -344,13 +375,18 @@ voteComment comment up user = do
       comment''   = comment' {cScore = scoreComment comment'}
   modify (\s -> s {commentSet = Ix.updateIx (IdIx (cId comment)) comment'' (commentSet s)})
   
-  
+
+-- | Gets a 'PostId', sees if it refers to a 'Submission' or to a
+-- 'Comment', and votes it. Does nothing if the post is not present.
 votePost :: PostId -> Bool -> User -> Update PostDB ()
 votePost id' up user = do
   p <- runQuery $ getPost id'
   maybe (return ())
     (either (\s -> voteSubmission s up user) (\c -> voteComment c up user)) p
 
+-- | Returns the number of votes to a post.
+-- TODO: right now it just gets the top level votes, I need to find a
+-- good way to get all the votes.
 countComments :: PostId -> Query PostDB Int
 countComments pId' = liftM (Ix.size . (@= ParentIx pId')) $ asks commentSet
 
@@ -365,3 +401,31 @@ $(makeAcidic ''PostDB [ 'newSubmission
                       , 'votePost
                       , 'countComments
                       ])  
+  
+
+
+-------------------------------------------------------------------------------
+
+parseProtocol :: ParsecT String u Identity String
+parseProtocol = string "http://" <|> string "https://"
+
+parseDomain :: ParsecT String u Identity String
+parseDomain = do
+  parseProtocol
+  d1 <- liftM ('.' :) domainLetters
+  d2 <- domainSeg
+  rest <- manyTill domainSeg (eof <|> (char '/' >> return ()))
+  let all' = d1 : d2 : rest
+  return $ tail $ concat $ drop (length all' - 2) all'
+  where
+    domainSeg = do
+      char '.'
+      d <- domainLetters
+      return $ '.' : d
+    domainLetters = many1 $ oneOf $ ['-'] ++ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']
+
+-- | Utility function that parses an url, and returns the domain.
+getDomain :: String -> Maybe String
+getDomain url = case parse parseDomain "" url of
+  Right p -> Just p
+  Left _  -> Nothing

@@ -1,8 +1,11 @@
 {-# Language DeriveDataTypeable, TypeFamilies, FlexibleContexts, TemplateHaskell #-}
 module Types.Route
-       ( Route (..)
+       ( -- * Types for the routing
+         Route (..)
        , PageNumber
        , home
+         
+         -- * Redirecting
        , routeRedirect
        , redirectPage
        , redirectPageReferer
@@ -29,6 +32,7 @@ import Types.Post
 
 
 type PageNumber = Int
+
 
 data Route = R_Submissions Submissions PageNumber (Maybe UserName) PostSort
            | R_Comments PageNumber UserName PostSort

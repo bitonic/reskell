@@ -1,18 +1,16 @@
 {-# LANGUAGE FlexibleContexts, TypeFamilies #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
 
-module Pages.Common (
-    template
-  , PageM
-  , TemplateM
-  , render
-  , renderForm
-  , separator
-  , seeOther'
-  , postsPerPage
---, e404
---, e500
-  ) where
+module Pages.Common
+       ( template
+       , render
+       , renderForm
+       , separator
+       , seeOther'
+       , postsPerPage
+         --, e404
+         --, e500
+       ) where
 
 
 import Control.Monad           (liftM)
@@ -87,6 +85,10 @@ template (title, heading, content) =
         
         <div id="footer">
           rostayob industries.
+          <% separator %>
+          <a href="https://github.com/rostayob/reskell">
+            fork me on github
+          </a>
         </div>
 
       </body>
