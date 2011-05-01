@@ -21,6 +21,7 @@ module Types.Post
 
          -- * DB
        , PostDB (..)
+       , PostVoters
        , openPostDB
          
          -- * Query / Updates
@@ -217,7 +218,9 @@ newSubmission userName title content now = do
                               , sTime      = now
                               , sTitle     = title
                               , sContent   = content
-                              , sVotesUp   = S.empty
+                              -- We add the user that's posting to the
+                              -- up voters automatically
+                              , sVotesUp   = S.fromList [userName]
                               , sVotesDown = S.empty
                               , sScore     = 0
                               }
@@ -233,7 +236,7 @@ newComment userName text sId' parentId now = do
                         , cTime       = now
                         , cUserName   = userName
                         , cText       = text
-                        , cVotesUp    = S.empty
+                        , cVotesUp    = S.fromList [userName]
                         , cVotesDown  = S.empty
                         , cParent     = parentId
                         , cSubmission = sId'
@@ -302,8 +305,10 @@ getSubmissions :: Submissions
                   -> Query PostDB [Submission]
 getSubmissions listing psort l s userM = do
   submissions <- asks submissionSet
-  return (take l . drop s . sortIx psort . stype . userSel userM $ submissions)
+  return (limit . drop s . sortIx psort . stype . userSel userM $ submissions)
   where
+    limit | l < 0     = id
+          | otherwise = take l
     stype = case listing of
       Submissions -> id
       Asks -> (@= Asks)
@@ -378,11 +383,9 @@ voteComment comment up user = do
 
 -- | Gets a 'PostId', sees if it refers to a 'Submission' or to a
 -- 'Comment', and votes it. Does nothing if the post is not present.
-votePost :: PostId -> Bool -> User -> Update PostDB ()
-votePost id' up user = do
-  p <- runQuery $ getPost id'
-  maybe (return ())
-    (either (\s -> voteSubmission s up user) (\c -> voteComment c up user)) p
+votePost :: (Either Submission Comment) -> Bool -> User -> Update PostDB ()
+votePost post up user =
+  either (\s -> voteSubmission s up user) (\c -> voteComment c up user) post
 
 -- | Returns the number of votes to a post.
 -- TODO: right now it just gets the top level votes, I need to find a

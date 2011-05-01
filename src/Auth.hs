@@ -1,15 +1,17 @@
 {-# Language FlexibleContexts #-}
 
-module Auth (
-    makeSession
-  , getSessionUser  
-  , expireSession
-  , checkUser
-  , anyUser
-  ) where
+module Auth
+       ( makeSession
+       , getSessionUser  
+       , expireSession
+       , checkUser
+       , anyUser
+       ) where
 
 
+import Control.Monad.Trans     (liftIO, MonadIO)
 import Control.Monad.Reader    (local)
+import Control.Monad.Error     (MonadError)
 
 import qualified Data.ByteString.Char8 as B8
 import Happstack.Server
@@ -45,9 +47,15 @@ expireSession = do
     Right sessionid -> userUpdate $ DeleteSession (B8.pack sessionid)
 
 
--- | Function to call at the very beginning. Checks if theres a cookie
--- with a valid session id. If there is, gets the 'User' and puts it
--- in the 'Session' stored in the 'ReaderT'.
+{-|
+
+Function to call at the very beginning.
+
+Checks if theres a cookie with a valid session id. If there is, gets
+the 'User' and puts it in the 'Session' stored in the 'ReaderT'
+containing the 'Context'.
+
+-}
 getSessionUser :: AppM a -> AppM a
 getSessionUser f = do
   eitherSid <- getDataFn $ lookCookieValue sessionCookie
@@ -58,12 +66,23 @@ getSessionUser f = do
       local (\ctx -> ctx {sessionUser = user}) f
   
 
--- | Barrier to restrict some pages to certain users. Takes an
--- authorization function, and a function that generates a response
--- given the user.
--- If the user is not there, redirects to the login page.      
--- If it's there but it has no permission, gives a 403 error.
-checkUser :: (User -> Bool) -> (User -> PageM Response) -> PageM Response
+{-|
+
+Barrier to restrict some pages to certain users.
+
+If the user is not there, redirects to the login page.
+
+If it's there but it has no permission, gives a 403 error - see
+'AppError'.
+
+-}
+checkUser :: (User -> Bool)
+             -- ^ Verifies is the user is authorized.
+             -> (User -> PageM Response)
+             -- ^ Action to execute with the user, after it has been
+             -- authorized. Won't be executed if the user is not
+             -- authorizes or if there is no user in the 'Context'.
+             -> PageM Response
 checkUser checkf act = do
   userM <- askContext sessionUser
   case userM of

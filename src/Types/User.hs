@@ -7,6 +7,7 @@ module Types.User
        , User (..)
        , UserName
        , Password
+       , Karma
        , SessionId
        , Session (..)
        , sessionCookie
@@ -25,6 +26,7 @@ module Types.User
        , NewUser (..)
        , GetUser (..)
        , UpdateUser (..)
+       , UpdateKarma (..)
          
        , NewSession (..)
        , CheckSession (..)
@@ -65,9 +67,11 @@ import Types.Common            ()
 
 type UserName = String
 type Password = ByteString
+type Karma    = Int
 
 data UserRank = Member | Admin
               deriving (Eq, Ord, Enum, Read, Show, Data, Typeable)
+$(deriveSafeCopy 0 'base ''UserRank)
 
 
 data User = User { uName     :: UserName
@@ -77,9 +81,10 @@ data User = User { uName     :: UserName
                  , uRank     :: UserRank
                  , uAbout    :: String
                  , uCreated  :: UTCTime
+                 , uKarma    :: Karma
                  }
           deriving (Eq, Ord, Read, Show, Data, Typeable)
-
+$(deriveSafeCopy 1 'extension ''User)
 
 -- | The strength to be used with 'makePassword'.
 hashStrength :: Int
@@ -87,14 +92,16 @@ hashStrength = 12
 
 
 
--- | The 'SessionId' that will be stored in the cookie.
 type SessionId = ByteString
                  
-data Session = Session { sessionId       :: ByteString
+data Session = Session { sessionId       :: SessionId
+                         -- ^ The 'SessionId' that will be stored in the cookie.
+                         -- Should be generated to be unguessable, see 'genSessionId'.
                        , sessionUserName :: UserName
                        , sessionTime     :: UTCTime
                        }
              deriving (Eq, Ord, Read, Show, Data, Typeable)
+$(deriveSafeCopy 0 'base ''Session)
 
 
 -- | The name of the cookie in which to store the 'SessionId'.
@@ -103,6 +110,20 @@ sessionCookie = "session"
 
 
 -------------------------------------------------------------------------------
+
+-- Migrations
+
+data User_v0 = User_v0 UserName Password UserRank String UTCTime
+
+$(deriveSafeCopy 0 'base ''User_v0)
+  
+instance Migrate User where
+  type MigrateFrom User = User_v0
+  migrate (User_v0 username password rank about time) =
+    User username password rank about time 0
+
+-------------------------------------------------------------------------------
+
 
 newtype UserNameIx = UserNameIx UserName
                    deriving (Eq, Ord, Data, Typeable)
@@ -123,16 +144,16 @@ instance Indexable User where
 data UserDB = UserDB { userSessions :: HashMap SessionId Session
                      , userSet      :: IxSet User
                      }
-
-$(deriveSafeCopy 0 'base ''UserRank)
-$(deriveSafeCopy 0 'base ''User)
-$(deriveSafeCopy 0 'base ''Session)
 $(deriveSafeCopy 0 'base ''UserDB)
 
   
 -- | Initializes the 'AcidState', to be called when the application
 -- starts.
-openUserDB :: FilePath -> IO (AcidState UserDB)
+openUserDB :: FilePath
+              -- ^ The base path in which to save the state, a
+              -- subdirectory named "UserDB" will be used to store the
+              -- 'UserDB' 'AcidState'.
+              -> IO (AcidState UserDB)
 openUserDB fp = openAcidStateFrom (fp </> "UserDB") $ UserDB HM.empty Ix.empty
   
 ----------------------------------------------------------------------  
@@ -149,6 +170,11 @@ getUser userName = do
 updateUser :: User -> Update UserDB ()
 updateUser user =
   modify (\s -> s {userSet = Ix.updateIx (UserNameIx (uName user)) user (userSet s)})
+
+updateKarma :: UserName -> Karma -> Update UserDB ()
+updateKarma userName karma =
+  runQuery (getUser userName) >>= maybe (return ()) (\user ->
+    updateUser (user {uKarma = uKarma user + karma}))
 
 
 newSession :: SessionId -> UserName -> UTCTime -> Update UserDB ()
@@ -169,6 +195,7 @@ deleteSession sId = modify (\s -> s {userSessions = HM.delete sId (userSessions 
 
 $(makeAcidic ''UserDB [ 'newUser
                       , 'getUser
+                      , 'getUsers                        
                       , 'updateUser
                         
                       , 'newSession

@@ -109,9 +109,14 @@ redirQuery :: String
 redirQuery = "redir"
 
 
--- | Appends the "redir" query to some Route. This should be used when
--- we have to "remember" a redirect, for example when using a form
--- (e.g. the login form).
+{-|
+
+Appends the "redir" query to some 'Route'.
+
+This should be used when we have to "remember" a redirect, for example
+when using a form (e.g. the login form).
+
+-}
 routeRedirect :: (ServerMonad m, ShowURL m, URL m ~ Route) => URL m -> m Link
 routeRedirect r = do
   uri <- liftM rqUri askRq
@@ -119,9 +124,15 @@ routeRedirect r = do
 
 
 
--- | Redirects the page, with this criteria:
--- If the query "redir" is present, redirect there
--- Otherwise, go to the home.
+{-|
+
+Redirects the page, with this criteria:
+
+If the query "redir" is present, redirect there
+
+Otherwise, go to the home.
+
+-}
 redirectPage ::
   ( ServerMonad m
   , FilterMonad Response m

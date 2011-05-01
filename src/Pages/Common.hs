@@ -24,10 +24,23 @@ import qualified HSX.XMLGenerator as HSX
 import Types
 
 
+
+{-|
+
+Renders the 'XML' and returns 200:
+ 
+@
+    (ok . toResponse =<<)
+@
+
+-}
 render :: PageM XML -> PageM Response
 render = (ok . toResponse =<<)
 
+-- | Base template.
 template :: (String, Maybe [TemplateM], [TemplateM])
+            -- ^ A title, an optional heading that will be enclosed in
+            -- @<h2>@, and the body.
             -> PageM (HSX.XML PageM)
 template (title, heading, content) =
   unXMLGenT $
@@ -96,7 +109,11 @@ template (title, heading, content) =
     </html>
 
 
-renderForm :: [TemplateM] -> String -> TemplateM
+renderForm :: [TemplateM]
+              -- ^ Form already in the proper form - see 'eitherHappstackForm'.
+              -> String
+              -- ^ String to put in the submit button.
+              -> TemplateM
 renderForm form submit = do
   { Request {rqUri = uri, rqQuery = query} <- askRq 
   ; <form method="POST" enctype="multipart/form-data" action=(uri ++ query)>
@@ -106,13 +123,15 @@ renderForm form submit = do
   }
 
 
+-- | A simple separator - @&middot;@.
 separator :: String
 separator = " · "
 
-
+-- | 'seeOther' but with an empty string as a message.
 seeOther' :: (ToSURI uri, FilterMonad Response m) => uri -> m Response
 seeOther' uri = liftM toResponse (seeOther uri "")
 
+-- | The number of posts to display in one page.
 postsPerPage :: PageNumber
 postsPerPage = 50
 

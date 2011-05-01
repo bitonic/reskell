@@ -11,7 +11,8 @@ import Control.Monad           (msum)
 
 import Data.Acid
 
-import Happstack.Server
+import Happstack.Server hiding (Conf (..))
+import qualified Happstack.Server as S
 import Happstack.State         (waitForTermination)
 
 import Types
@@ -30,20 +31,27 @@ main = withLogger $ do
 
   bracket acquireDB releaseDB $ \(pdb, udb) ->
 
-    bracket (forkIO $ runServer (static args') pdb udb) killThread $ \_ -> do
-      logM "Happstack.Server" NOTICE "System running, press 'e <ENTER>' or Ctrl-C to stop server"
+    bracket (forkIO $ runServer (static args') (port args') pdb udb) killThread $
+    \_ -> do
+      logM "Happstack.Server" NOTICE
+           "System running, press 'e <ENTER>' or Ctrl-C to stop server"
       waitForTermination
+  
   where
     releaseDB (pdb, udb) = createCheckpointAndClose pdb >> createCheckpointAndClose udb
 
-runServer :: FilePath -> AcidState PostDB -> AcidState UserDB -> IO ()
-runServer fp pdb udb = do
+runServer :: FilePath -> Int -> AcidState PostDB -> AcidState UserDB -> IO ()
+runServer fp port' pdb udb = do
+  
   let context = Context { sessionUser = Nothing
                         , postDB      = pdb
                         , userDB      = udb
                         }
-  simpleHTTP nullConf $ do
-    decodeBody (defaultBodyPolicy "/tmp/" 4096 4096 4096)
+
+  simpleHTTP (nullConf {S.port = port'}) $ do
+    -- No files
+    decodeBody (defaultBodyPolicy "/tmp/" 0 1024 1024)
+    
     msum [ dir "static" $ serveDirectory DisableBrowsing [] fp
          , mapServerPartT (unpackApp context) (getSessionUser runRoutes)
          ]
@@ -51,12 +59,22 @@ runServer fp pdb udb = do
               
 data CmdData = CmdData { static :: String
                        , store  :: String
+                       , port   :: Int
                        }
              deriving (Read, Show, Data, Typeable)
 
 cmdData :: CmdData
-cmdData = CmdData { store = "_local" &= typ "DIR" &= help "The directory in which the state will be stored (_local)"
-                  , static = "resources" &= typ "DIR" &= help "The directory searched for static files (resources)"
-                  } &=
-          help "Haskell hybrid between reddit ans hacker news." &=
-          summary "reskell v0.0, (C) Francesco Mazzoli 2010"
+cmdData = CmdData { store = "_local"
+                    &= typ "DIR"
+                    &= help "The directory in which the state will be stored (_local)"
+
+                  , static = "resources"
+                    &= typ "DIR"
+                    &= help "The directory searched for static files (resources)"
+
+                  , port = 8000
+                    &= typ "NUM"
+                    &= help "Port to bind http server (8000)"
+                  }
+          &= help "Haskell hybrid between reddit ans hacker news."
+          &= summary "reskell v0.0, (C) Francesco Mazzoli 2010"

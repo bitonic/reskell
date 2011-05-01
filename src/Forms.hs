@@ -1,11 +1,11 @@
-{-# OPTIONS_GHC -F -pgmFtrhsx #-}
-module Forms (
-    loginForm
-  , submitForm
-  , commentForm
-  , registerForm
-  , cpForm
-  ) where
+module Forms
+       ( AppForm
+       , loginForm
+       , submitForm
+       , commentForm
+       , registerForm
+       , cpForm
+       ) where
 
 
 import Control.Monad           (liftM)
@@ -32,6 +32,12 @@ import Types
 
 type AppForm = Form PageM Input [Char] [TemplateM]
 
+{-|
+
+Login form. Checks that the 'UserName' and 'Password' match, and
+returns them.
+
+-}
 loginForm :: AppForm (UserName, Password)
 loginForm = childErrors ++> form
   where
@@ -46,6 +52,22 @@ loginForm = childErrors ++> form
         Just user -> verifyPassword password (uPassword user)
 
 
+{-|
+
+Form to register a new user. Returns the username and two passwords
+(the second is the verification password).
+
+Checks that:
+
+    * The username is not present in the DB already
+
+    * The password length is > 5 && < 50
+
+    * The username length is > 0 && < 100
+
+    * The password and the verification password match.
+
+-}
 registerForm :: AppForm (UserName, Password, Password)
 registerForm = childErrors ++> form
   where
@@ -63,12 +85,24 @@ registerForm = childErrors ++> form
                    return (B8.length password < 50)
                 , checkM "Username too long (max 100 chars)" $ \(userName, _, _) ->
                    return (length userName < 100)
+                , checkM "Username required." $ \(userName, _, _) ->
+                   return $ not (null userName)
                 , checkM "The two passwords don't match" $ \(_, p1, p2) ->
                    return $ p1 == p2
                 ]
 
 
+{-|
 
+Form used when submitting a 'Submission'.
+
+Checks that:
+
+    * The title is present
+
+    * Either a valid link (see 'getDomain') or a message are present.
+
+-}
 submitForm :: AppForm (String, String, String)
 submitForm = childErrors ++> form
   where
@@ -93,6 +127,13 @@ commentForm :: AppForm String
 commentForm = childErrors ++> inputTextArea (Just 8) (Just 70) Nothing
 
 
+{-|
+
+Form for the user control panel.
+
+Checks that, if a new password is input, the old one is correct.
+
+-}
 cpForm :: User -> AppForm (String, Password, Password, Password)
 cpForm user = childErrors ++> form
   where

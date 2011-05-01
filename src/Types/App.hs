@@ -25,13 +25,6 @@ module Types.App
        , postQuery
        , postUpdate
        , dbTime
-
-         
-       -- * Various useful exports
-       , MonadError
-       , MonadIO
-       , ReaderT
-       , liftIO
        ) where
 
 
@@ -70,15 +63,17 @@ import Types.Route
 
 
 
--- | The application context. Holds the 'PostDB' and 'UserDB'
--- 'AcidState's and an 'User', if the visitor is logged in.
+-- | The application context.
 data Context = Context { sessionUser :: Maybe User
+                         -- ^ The 'User' that's logged in, if present
                        , postDB      :: AcidState PostDB
+                         -- ^ The 'AcidState' for the 'PostDB'
                        , userDB      :: AcidState UserDB
+                         -- ^ The 'AcidState' for the 'UserDB'
                        }
 
 
--- | A 'Monad' with a context in it
+-- | A 'Monad' with a 'Context' in it.
 class Monad m => MonadContext m where
   getContext :: m Context
 
@@ -126,7 +121,7 @@ forbiddenError = throwError Forbidden
 -- | The main 'Monad' of the application
 type AppM = ServerPartT (ErrorT AppError (ReaderT Context IO))
 
--- | Transforms 'AppM' to a 'ServerPartT IO'
+-- | Transforms 'AppM' to a 'ServerPartT'
 unpackApp :: Context
              -> UnWebT (ErrorT AppError (ReaderT Context IO)) a
              -> UnWebT IO a

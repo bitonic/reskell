@@ -5,6 +5,8 @@ module Pages
        ) where
 
 
+import Control.Monad.Trans     (liftIO)
+
 import Data.Time.Clock         (getCurrentTime)
   
 import HSP
@@ -27,8 +29,11 @@ import Auth
 
 
 
--- | Landing functions, that gets the 'Route' and returns the
--- 'Response'.
+{-|
+Landing function, that gets the 'Route' and returns the 'Response'.
+
+It will call the other pages functions, and handle form data.
+-}
 dispatch :: Route -> PageM Response
 
 dispatch r@(R_Post id' psort) = do
@@ -86,8 +91,14 @@ dispatch R_Submit =
 
 dispatch R_Logout = expireSession >> redirectPageReferer
 
-dispatch (R_Vote id' up) =
-  checkUser anyUser $ \user -> postUpdate (VotePost id' up user) >> redirectPageReferer
+dispatch (R_Vote id' up) = postQuery (GetPost id') >>= maybe notFoundError vote 
+  where
+    vote post = checkUser anyUser $ \user -> do
+      postUpdate $ VotePost post up user
+      let karma | up = 1
+                | otherwise = -1
+      userUpdate $ UpdateKarma (either pUserName pUserName post) karma
+      redirectPageReferer
 
 dispatch (R_Submissions submissions page userM psort) =
   submissionsPage submissions page userM psort
@@ -110,6 +121,7 @@ dispatch R_Register = do
                            , uRank = Member
                            , uAbout = ""
                            , uCreated = time
+                           , uKarma = 0
                            }
           userUpdate $ NewUser user'
           makeSession userName

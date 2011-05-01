@@ -8,6 +8,8 @@ module Pages.Post
        ) where
 
 
+import Control.Monad.Trans     (liftIO)
+  
 import Data.Time.Clock
 import qualified Data.Set as S
 
@@ -66,7 +68,7 @@ whenPosted p =
 renderComment :: Comment -> PostSort -> TemplateM
 renderComment comment psort = do
   { comments <- postQuery $ GetComments psort (Just $ cId comment) Nothing
-  ; <div class="comment">
+  ; <div class="comment" name=(cId comment)>
       <% voteArrows comment %>
       <% commentDetails comment Nothing psort %>
       <div class="postText">
