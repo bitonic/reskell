@@ -195,8 +195,8 @@ deleteSession sId = modify (\s -> s {userSessions = HM.delete sId (userSessions 
 
 $(makeAcidic ''UserDB [ 'newUser
                       , 'getUser
-                      , 'getUsers                        
                       , 'updateUser
+                      , 'updateKarma
                         
                       , 'newSession
                       , 'checkSession
