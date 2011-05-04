@@ -1,11 +1,16 @@
 {-# Language FlexibleContexts #-}
 
 module Auth
-       ( makeSession
+       ( -- * Session
+         makeSession
        , getSessionUser  
        , expireSession
+         
+         -- * Authorization
        , checkUser
        , anyUser
+       , editPost
+       , deletePost
        ) where
 
 
@@ -94,3 +99,14 @@ checkUser checkf act = do
 
 anyUser :: a -> Bool
 anyUser _ = True
+
+editPost :: Post a => a -> User -> Bool
+editPost post user = case uRank user of
+  Admin     -> True
+  Moderator -> True
+  Member    -> pUserName post == uName user
+
+deletePost :: User -> Bool
+deletePost user = case uRank user of
+  Member -> False
+  _      -> True

@@ -23,6 +23,7 @@ import Web.Routes
 
 import Types
 import Pages.Common
+import Auth
 
 
 
@@ -88,6 +89,22 @@ renderComments cs psort =
   <div class="comments"><% map (`renderComment` psort) cs %></div >
 
 
+-- deleteLink :: Post a => a -> [TemplateM]
+deleteLink post = do
+  { userM <- askContext sessionUser
+  ; <%>
+      <% case userM of
+           Nothing   -> []
+           Just user -> if deletePost user
+                        then [ <span><% separator %></span>
+                             , <a href=(R_Delete (pId post))>x</a>
+                             ]
+                        else []
+      %>
+    </%>
+  }
+
+
 submissionDetails :: Submission -> Bool -> TemplateM
 submissionDetails s listing = do
   { commentsN <- postQuery $ CountComments (sId s)
@@ -99,12 +116,13 @@ submissionDetails s listing = do
               ]
          else []
       %>
+      <% deleteLink s %>
     </div>
   }
   where
     comments 0 = "discuss"
     comments 1 = "1 comment"
-    comments n = show n ++ " comment"
+    comments n = show n ++ " comments"
 
 
 commentDetails :: Comment -> Maybe Submission -> PostSort -> TemplateM
@@ -126,6 +144,7 @@ commentDetails c sM psort =
                     <% separator %>on: <a href=submissionURL><% sTitle s %></a>
                   </%>
     %>
+    <% deleteLink c %>
   </div>
 
 

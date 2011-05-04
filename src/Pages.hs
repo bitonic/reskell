@@ -60,6 +60,9 @@ dispatch r@(R_Post id' psort) = do
         Right c -> dbTime postUpdate $ NewComment (uName user) comment (cSubmission c) (cId c)
       seeOtherURL r
 
+dispatch (R_Delete id') =
+  checkUser deletePost $ \_ -> postUpdate (DeletePost id') >> redirectPageReferer
+
 dispatch R_Login = do
   userM <- askContext sessionUser
   case userM of
@@ -97,13 +100,15 @@ dispatch (R_Vote id' up) = postQuery (GetPost id') >>= maybe notFoundError vote
       postUpdate $ VotePost post up user
       let karma | up = 1
                 | otherwise = -1
-      userUpdate $ UpdateKarma (either pUserName pUserName post) karma
+          pUser = either pUserName pUserName post
+      if uName user /= pUser
+        then userUpdate $ UpdateKarma pUser karma
+        else return ()
       redirectPageReferer
 
 dispatch (R_Submissions submissions page userM psort) =
   submissionsPage submissions page userM psort
-
-
+  
 dispatch R_Register = do
   user <- askContext sessionUser
   case user of

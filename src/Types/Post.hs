@@ -35,6 +35,7 @@ module Types.Post
        , VoteComment (..)
        , VotePost (..)
        , CountComments (..)
+       , DeletePost (..)
          
          -- * Utils
        , getDomain
@@ -149,6 +150,8 @@ newtype IdIx = IdIx PostId
              deriving (Eq, Ord, Data, Typeable)
 newtype ParentIx = ParentIx PostId
                  deriving (Eq, Ord, Data, Typeable)
+newtype SubmissionIx = SubmissionIx PostId
+                     deriving (Eq, Ord, Data, Typeable)
 
 instance Indexable Submission where
   empty = ixSet [ ixFun (\s -> [TimeIx     (sTime s)])
@@ -161,11 +164,12 @@ instance Indexable Submission where
                 ]
 
 instance Indexable Comment where
-  empty = ixSet [ ixFun (\c -> [IdIx       (cId c)])
-                , ixFun (\c -> [TimeIx     (cTime c)])
-                , ixFun (\c -> [UserNameIx (cUserName c)])
-                , ixFun (\c -> [ScoreIx    (cScore c)])
-                , ixFun (\c -> [ParentIx   (cParent c)])
+  empty = ixSet [ ixFun (\c -> [IdIx         (cId c)])
+                , ixFun (\c -> [TimeIx       (cTime c)])
+                , ixFun (\c -> [UserNameIx   (cUserName c)])
+                , ixFun (\c -> [ScoreIx      (cScore c)])
+                , ixFun (\c -> [ParentIx     (cParent c)])
+                , ixFun (\c -> [SubmissionIx (cSubmission c)])
                 ]
 
   
@@ -391,7 +395,18 @@ votePost post up user =
 -- TODO: right now it just gets the top level votes, I need to find a
 -- good way to get all the votes.
 countComments :: PostId -> Query PostDB Int
-countComments pId' = liftM (Ix.size . (@= ParentIx pId')) $ asks commentSet
+countComments pId' = liftM (Ix.size . (@= SubmissionIx pId')) $ asks commentSet
+
+deletePost :: PostId -> Update PostDB ()
+deletePost id' = do
+  comments <- runQuery $ getComments New (Just id') Nothing
+  mapM_ (deletePost . cId) comments
+  postM <- runQuery $ getPost id'
+  case postM of
+    Nothing -> return ()
+    Just (Left sub) -> modify (\s -> s {submissionSet = Ix.delete sub (submissionSet s)})
+    Just (Right comm) -> modify (\s -> s {commentSet = Ix.delete comm (commentSet s)})
+  
 
 $(makeAcidic ''PostDB [ 'newSubmission
                       , 'newComment
@@ -403,6 +418,7 @@ $(makeAcidic ''PostDB [ 'newSubmission
                       , 'voteComment
                       , 'votePost
                       , 'countComments
+                      , 'deletePost
                       ])  
   
 
@@ -417,7 +433,8 @@ parseDomain = do
   parseProtocol
   d1 <- liftM ('.' :) domainLetters
   d2 <- domainSeg
-  rest <- manyTill domainSeg (eof <|> (char '/' >> return ()))
+  rest <- manyTill domainSeg $ endDomain
+                          <|> (char ':' >> many1 digit >> endDomain)
   let all' = d1 : d2 : rest
   return $ tail $ concat $ drop (length all' - 2) all'
   where
@@ -426,6 +443,7 @@ parseDomain = do
       d <- domainLetters
       return $ '.' : d
     domainLetters = many1 $ oneOf $ ['-'] ++ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']
+    endDomain = eof <|> (char '/' >> return ())
 
 -- | Utility function that parses an url, and returns the domain.
 getDomain :: String -> Maybe String

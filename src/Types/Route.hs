@@ -38,6 +38,7 @@ data Route = R_Submissions Submissions PageNumber (Maybe UserName) PostSort
            | R_Comments PageNumber UserName PostSort
            | R_Post PostId PostSort
            | R_Vote PostId Bool
+           | R_Delete PostId
            | R_Submit
            | R_User UserName
            | R_Login
@@ -60,6 +61,7 @@ instance PathInfo Route where
     ["comments", show page, user, show psort]
   toPathSegments (R_Post id' psort) = ["post", show id', show psort]
   toPathSegments (R_Vote id' up)    = ["vote", show id', show up]
+  toPathSegments (R_Delete id')     = ["delete", show id']
   toPathSegments  R_Submit          = ["submit"]
   toPathSegments (R_User username)  = ["user", username]
   toPathSegments  R_Login           = ["login"]
@@ -84,6 +86,8 @@ instance PathInfo Route where
               R_Post <$> readSegment <*> readSegment
          , do segment "vote"
               R_Vote <$> readSegment <*> readSegment
+         , do segment "delete"
+              R_Delete <$> readSegment
          , segment "submit" >> return R_Submit
          , do segment "user"
               R_User <$> anySegment
