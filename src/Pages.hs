@@ -61,7 +61,7 @@ dispatch r@(R_Post id' psort) = do
       seeOtherURL r
 
 dispatch (R_Delete id') =
-  checkUser deletePost $ \_ -> postUpdate (DeletePost id') >> redirectPageReferer
+  checkUser deletePost $ \_ -> postUpdate (DeletePost id') >> seeOtherURL home
 
 dispatch R_Login = do
   userM <- askContext sessionUser

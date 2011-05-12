@@ -216,7 +216,7 @@ postPage form (Left p) psort = do
                        [renderComments comments psort]
 
     text = case sContent p of
-      Ask t -> [<div class="postText"><% t %></div>]
+      Ask t -> [<div class="postText"><% markdownSubmission t %></div>]
       _     -> []
 postPage form (Right p) psort = do
   sM <- postQuery $ GetSubmission (cSubmission p)
@@ -225,7 +225,8 @@ postPage form (Right p) psort = do
   render $ template $
     ( truncateText (cText p) 200
     , Nothing
-    , commentDetails p (Just s) psort : <div class="postText"><% cText p %></div> :
+    , commentDetails p (Just s) psort :
+       <div class="postText"><% markdownComment (cText p) %></div> :
        form ++ commentsSortLinks (R_Post (pId p)) psort ++
        [renderComments comments psort]
     )

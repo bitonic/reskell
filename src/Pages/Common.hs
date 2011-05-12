@@ -8,6 +8,8 @@ module Pages.Common
        , separator
        , seeOther'
        , postsPerPage
+       , markdownComment
+       , markdownSubmission
          --, e404
          --, e500
        ) where
@@ -15,24 +17,26 @@ module Pages.Common
 
 import Control.Monad           (liftM)
 
+import qualified Data.ByteString.UTF8 as UTF8
 import Happstack.Server
 import Happstack.Server.SURI   (ToSURI)
 
 import HSP hiding (Request)
 import qualified HSX.XMLGenerator as HSX
 
+import Text.Upskirt
+import Text.Upskirt.Renderers.Html
+
 import Types
 
 
 
 {-|
-
 Renders the 'XML' and returns 200:
  
 @
     (ok . toResponse =<<)
 @
-
 -}
 render :: PageM XML -> PageM Response
 render = (ok . toResponse =<<)
@@ -135,6 +139,19 @@ seeOther' uri = liftM toResponse (seeOther uri "")
 postsPerPage :: PageNumber
 postsPerPage = 50
 
+-- | Markdown comment
+
+markdownComment text = cdata html
+  where
+    html = UTF8.toString $ renderHtml (UTF8.fromString $ text)
+                                      noExtensions noHtmlModes
+
+-- | Markdown submission
+
+markdownSubmission text = cdata html
+  where
+    html = UTF8.toString $ renderHtml (UTF8.fromString text)
+                                      noExtensions noHtmlModes
 
 {-
 e404 :: PageM Response

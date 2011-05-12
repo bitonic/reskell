@@ -47,6 +47,8 @@ executable reskell
                    , template-haskell
                    , time
                    , unordered-containers
+                   , upskirt >= 0.0.3
+                   , utf8-string >= 0.3.6 < 0.4
                    , web-routes >= 0.24.1
                    , web-routes-happstack >= 0.22.1
                    , web-routes-hsp >= 0.21.3

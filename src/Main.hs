@@ -50,7 +50,7 @@ runServer fp port' pdb udb = do
 
   simpleHTTP (nullConf {S.port = port'}) $ do
     -- No files
-    decodeBody (defaultBodyPolicy "/tmp/" 0 1024 1024)
+    decodeBody (defaultBodyPolicy "/tmp/" 0 10000 1024)
     
     msum [ dir "static" $ serveDirectory DisableBrowsing [] fp
          , mapServerPartT (unpackApp context) (getSessionUser runRoutes)
