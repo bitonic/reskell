@@ -54,7 +54,6 @@ template (title, heading, content) =
 
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 
-        <link href=(R_Static ["css", "reset.css"]) media="screen" rel="stylesheet" type="text/css" />
         <link href=(R_Static ["css", "style.css"]) media="screen" rel="stylesheet" type="text/css" />
 
         <title> <% "Reskell - " ++ title %> </title>
@@ -140,14 +139,14 @@ postsPerPage :: PageNumber
 postsPerPage = 50
 
 -- | Markdown comment
-
+markdownComment :: String -> XML
 markdownComment text = cdata html
   where
     html = UTF8.toString $ renderHtml (UTF8.fromString $ text)
                                       noExtensions noHtmlModes
 
 -- | Markdown submission
-
+markdownSubmission :: String -> XML
 markdownSubmission text = cdata html
   where
     html = UTF8.toString $ renderHtml (UTF8.fromString text)
