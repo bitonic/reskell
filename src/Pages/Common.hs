@@ -24,8 +24,8 @@ import Happstack.Server.SURI   (ToSURI)
 import HSP hiding (Request)
 import qualified HSX.XMLGenerator as HSX
 
-import Text.Upskirt
-import Text.Upskirt.Renderers.Html
+import Text.Sundown
+import Text.Sundown.Renderers.Html
 
 import Types
 

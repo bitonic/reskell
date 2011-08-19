@@ -54,11 +54,9 @@ import Data.Set                (Set)
 import qualified Data.Set as S
 import Data.Acid
 
-
 import Text.Parsec.Prim
 import Text.Parsec.Char
 import Text.Parsec.Combinator
-
 
 import Web.Routes              ()
 
@@ -66,7 +64,6 @@ import Happstack.Data.IxSet    (IxSet, (@=), Indexable, ixFun, ixSet)
 import qualified Happstack.Data.IxSet as Ix
 import Happstack.Data.Proxy
 
-import Types.Common            ()
 import Types.User
 
 

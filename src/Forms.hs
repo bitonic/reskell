@@ -17,20 +17,16 @@ import qualified Data.ByteString.Char8 as B8
 
 import Text.Digestive.Types
 import Text.Digestive.Validate
-import Text.Digestive.HSP.Html4
+import Text.Digestive.HSP.Html4 hiding (form)
 
 import Happstack.Server        (Input)
 
 import Crypto.PasswordStore    (verifyPassword)
 
-
 import Types
 
 
-
-
-
-type AppForm = Form PageM Input [Char] [TemplateM]
+type AppForm = Form PageM [Input] [Char] [TemplateM]
 
 {-|
 
@@ -43,7 +39,7 @@ loginForm = childErrors ++> form
   where
     form = (`validate` validator) $ (,)
            <$> label "Username: " ++> inputString Nothing
-           <*> label "Password: " ++> (B8.pack <$> inputPassword)
+           <*> label "Password: " ++> (fmap B8.pack inputPassword)
     
     validator = checkM "Incorrect username/password" $ \(userName, password) -> do
       userM <- userQuery $ GetUser userName

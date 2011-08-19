@@ -64,7 +64,6 @@ import Types.Common            ()
 
 
 
-
 type UserName = String
 type Password = ByteString
 type Karma    = Int

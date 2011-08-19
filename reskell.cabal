@@ -19,14 +19,14 @@ executable reskell
   main-is:           Main.hs
 
   build-depends:     base >= 4 && < 5
-                   , acid-state >= 0.4.1 && < 0.5
+                   , acid-state >= 0.5 && < 0.6
                    , bson
                    , bytestring
                    , cmdargs
                    , containers
-                   , digestive-functors >= 0.0.2 && < 0.0.3
-                   , digestive-functors-happstack >= 0.0.2 && < 0.0.3
-                   , digestive-functors-hsp >= 0.2 && < 0.3
+                   , digestive-functors >= 0.1.0.1 && < 0.2
+                   , digestive-functors-happstack >= 0.1.0.1 && < 0.2
+                   , digestive-functors-hsp >= 0.4.5 && < 0.5
                    , extensible-exceptions
                    , filepath
                    , happstack-data >= 6 && < 7
@@ -47,10 +47,10 @@ executable reskell
                    , template-haskell
                    , time
                    , unordered-containers
-                   , upskirt >= 0.0.3
-                   , utf8-string >= 0.3.6 < 0.4
+                   , sundown >= 0.1.2
+                   , utf8-string >= 0.3.6 && < 0.4
                    , web-routes >= 0.24.1
                    , web-routes-happstack >= 0.22.1
                    , web-routes-hsp >= 0.21.3
 
-  GHC-options:       -Wall -fno-warn-unused-do-bind -threaded -optl-static -optl-pthread
+  GHC-options:       -Wall -fno-warn-unused-do-bind -threaded
