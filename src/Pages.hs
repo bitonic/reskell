@@ -26,9 +26,6 @@ import Pages.User
 import Forms
 import Auth
 
-
-
-
 {-|
 Landing function, that gets the 'Route' and returns the 'Response'.
 
