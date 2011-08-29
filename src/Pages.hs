@@ -1,13 +1,15 @@
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
 
 module Pages
-       ( dispatch
-       ) where
+    ( dispatch
+    ) where
 
 
-import Control.Monad.Trans     (liftIO)
+import Control.Monad.Trans (liftIO)
 
-import Data.Time.Clock         (getCurrentTime)
+import Crypto.PasswordStore
+
+import Data.Time.Clock (getCurrentTime)
   
 import HSP
 
@@ -17,14 +19,12 @@ import Text.Digestive.Forms.Happstack
 
 import Web.Routes.Happstack
 
-import Crypto.PasswordStore
-
-import Types
+import Auth
+import Forms
 import Pages.Common
 import Pages.Post
 import Pages.User
-import Forms
-import Auth
+import Types
 
 {-|
 Landing function, that gets the 'Route' and returns the 'Response'.

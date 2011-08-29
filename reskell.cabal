@@ -33,8 +33,7 @@ executable reskell
                    , happstack-hsp >= 6.0.1 && < 7
                    , happstack-ixset >= 6.0.1 && < 7
                    , happstack-server >= 6 && < 7
-                   , happstack-state >= 6 && < 7
-                   , happstack-util >= 0.6 && < 7
+                   , happstack-util >= 6 && < 7
                    , hashable
                    , hslogger >= 1.1
                    , hsp >= 0.6.1

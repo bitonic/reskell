@@ -1,34 +1,34 @@
 {-# Language DeriveDataTypeable, TypeFamilies, FlexibleContexts, TemplateHaskell #-}
 module Types.Route
-       ( -- * Types for the routing
-         Route (..)
-       , PageNumber
-       , home
-         
-         -- * Redirecting
-       , routeRedirect
-       , redirectPage
-       , redirectPageReferer
-       ) where
+    ( -- * Types for the routing
+      Route (..)
+    , PageNumber
+    , home
+      
+    -- * Redirecting
+    , routeRedirect
+    , redirectPage
+    , redirectPageReferer
+    ) where
 
 
-import Data.Data                     (Data, Typeable)
+
+import Control.Applicative ((<*>), (<$>))
+import Control.Monad
+
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Data (Data, Typeable)
+
+import Happstack.Server
 
 import Text.ParserCombinators.Parsec (optionMaybe)
-
-import Control.Applicative           ((<*>), (<$>))
-import Control.Monad
 
 import Web.Routes
 import Web.Routes.Happstack
 
-import Happstack.Server
-
-import Types.User
 import Types.Post
-
+import Types.User
 
 
 type PageNumber = Int

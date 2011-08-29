@@ -1,66 +1,56 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, TypeFamilies #-}
 
 module Types.App
-       ( -- * The Context
-         Context (..)
-       , MonadContext (..)
-       , askContext
+    ( -- * The Context
+      Context (..)
+    , MonadContext (..)
+    , askContext
+      
+    -- * Error reporting
+    , AppError (..)
+    , notFoundError
+    , serverError
+    , forbiddenError
+      
+    -- * The application monads
+    , AppM
+    , unpackApp
+    , PageM
+    , TemplateM
+      
+      
+    -- * Utilities to query the DBs
+    , userQuery
+    , userUpdate
+    , postQuery
+    , postUpdate
+    , dbTime
+    ) where
 
-         -- * Error reporting
-       , AppError (..)
-       , notFoundError
-       , serverError
-       , forbiddenError
-         
-         -- * The application monads
-       , AppM
-       , unpackApp
-       , PageM
-       , TemplateM
-         
-    
-         -- * Utilities to query the DBs
-       , userQuery
-       , userUpdate
-       , postQuery
-       , postUpdate
-       , dbTime
-       ) where
-
-
-
-
-import Control.Monad.Trans
-import Control.Monad.Reader
 import Control.Monad.Error
+import Control.Monad.Reader
 
 import Data.Acid
 import Data.Time.Clock
+
+import HSP (XMLGenT)
+import HSP.ServerPartT ()
+
+import qualified HSX.XMLGenerator as HSX
   
 import Happstack.Server hiding (Host)
-
-import Web.Routes              (RouteT)
-
-import HSP                     (XMLGenT)
-import qualified HSX.XMLGenerator as HSX
-
-
-
--- instances
 import Happstack.Server.HSP.HTML ()
-import Web.Routes.XMLGenT      ()
-import Web.Routes.Happstack    ()
-import HSP.ServerPartT         ()
+import Happstack.Server.HSX ()
+
 import Text.Digestive.Forms.Happstack ()
-import Happstack.Server.HSX    ()
 
+import Web.Routes (RouteT)
+import Web.Routes.Happstack ()
+import Web.Routes.XMLGenT ()
 
-
-import Types.User
 import Types.Post
 import Types.Route
-
-
+import Types.User
 
 
 -- | The application context.

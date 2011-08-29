@@ -1,27 +1,27 @@
 module Forms
-       ( AppForm
-       , loginForm
-       , submitForm
-       , commentForm
-       , registerForm
-       , cpForm
-       ) where
+    ( AppForm
+    , loginForm
+    , submitForm
+    , commentForm
+    , registerForm
+    , cpForm
+    ) where
 
 
-import Control.Monad           (liftM)
-import Control.Applicative     ((<$>), (<*>))
+import Control.Monad (liftM)
+import Control.Applicative ((<$>), (<*>))
 
-import Data.Monoid             (mconcat)
-import Data.Maybe              (isJust, isNothing)
+import Data.Monoid (mconcat)
+import Data.Maybe (isJust, isNothing)
 import qualified Data.ByteString.Char8 as B8
 
 import Text.Digestive.Types
 import Text.Digestive.Validate
 import Text.Digestive.HSP.Html4 hiding (form)
 
-import Happstack.Server        (Input)
+import Happstack.Server (Input)
 
-import Crypto.PasswordStore    (verifyPassword)
+import Crypto.PasswordStore (verifyPassword)
 
 import Types
 

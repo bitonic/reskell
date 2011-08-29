@@ -1,24 +1,23 @@
-{-# Language DeriveDataTypeable #-}
+{-# Language CPP, DeriveDataTypeable #-}
 
 module Main where
 
-import System.Console.CmdArgs
-import System.Log.Logger       (Priority (..), logM)
-
-import Control.Concurrent      (forkIO, killThread)
-import Control.Exception       (bracket)
-import Control.Monad           (msum)
+import Control.Concurrent (forkIO, killThread)
+import Control.Exception (bracket)
+import Control.Monad (msum)
 
 import Data.Acid
 
-import Happstack.Server hiding (Conf (..))
 import qualified Happstack.Server as S
-import Happstack.State         (waitForTermination)
+import Happstack.Server hiding (Conf (..))
 
-import Types
-import Routes
+import System.Console.CmdArgs
+import System.Log.Logger (Priority (..), logM)
+
 import Auth
 import Logger
+import Routes
+import Types
 
 main :: IO ()
 main = withLogger $ do
@@ -39,6 +38,26 @@ main = withLogger $ do
   
   where
     releaseDB (pdb, udb) = createCheckpointAndClose pdb >> createCheckpointAndClose udb
+
+-- Function taken from happstack-state. Right now happstack-state
+-- doesn't compile and I don't want it to have as a dependency anyway,
+-- so here it is.
+waitForTermination :: IO ()
+waitForTermination = do
+#ifdef UNIX
+  istty <- queryTerminal stdInput
+  mv <- newEmptyMVar
+  installHandler softwareTermination (CatchOnce (putMVar mv ())) Nothing
+  case istty of
+    True  -> do installHandler keyboardSignal (CatchOnce (putMVar mv ())) Nothing
+               return ()
+    False -> return ()
+  takeMVar mv
+#else
+  let loop 'e' = return () 
+      loop _   = getChar >>= loop
+  loop 'c'
+#endif
 
 runServer :: FilePath -> Int -> AcidState PostDB -> AcidState UserDB -> IO ()
 runServer fp port' pdb udb = do

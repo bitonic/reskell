@@ -2,27 +2,29 @@
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
 
 module Pages.Common
-       ( template
-       , render
-       , renderForm
-       , separator
-       , seeOther'
-       , postsPerPage
-       , markdownComment
-       , markdownSubmission
-         --, e404
-         --, e500
-       ) where
+    ( template
+    , render
+    , renderForm
+    , separator
+    , seeOther'
+    , postsPerPage
+    , markdownComment
+    , markdownSubmission
+    --, e404
+    --, e500
+    ) where
 
 
 import Control.Monad           (liftM)
 
 import qualified Data.ByteString.UTF8 as UTF8
-import Happstack.Server
-import Happstack.Server.SURI   (ToSURI)
 
 import HSP hiding (Request)
+
 import qualified HSX.XMLGenerator as HSX
+
+import Happstack.Server
+import Happstack.Server.SURI (ToSURI)
 
 import Text.Sundown
 import Text.Sundown.Renderers.Html

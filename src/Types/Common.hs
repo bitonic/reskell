@@ -1,13 +1,13 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Types.Common () where
 
-import Data.SafeCopy
-import Data.HashMap.Strict     (HashMap)
+import Data.Data (Typeable)
+import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
-import Data.Hashable           (Hashable)
-import Data.Data               (Typeable)
+import Data.Hashable (Hashable)
+import Data.SafeCopy
 
-import Happstack.Data.IxSet    (IxSet, Indexable)
+import Happstack.Data.IxSet (IxSet, Indexable)
 import qualified Happstack.Data.IxSet as Ix
 
 instance (SafeCopy a, Ord a, Indexable a, Typeable a) => SafeCopy (IxSet a) where

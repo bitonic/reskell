@@ -9,12 +9,12 @@ module Pages.Post
 
 
 import Control.Monad.Trans     (liftIO)
-  
-import Data.Time.Clock
+
 import qualified Data.Set as S
+import Data.Time.Clock
 
 import HSP
-import HSP.ServerPartT         ()
+import HSP.ServerPartT ()
 
 import Happstack.Server
 import Happstack.Server.HSP.HTML ()

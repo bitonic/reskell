@@ -7,8 +7,8 @@ import Happstack.Server
 import Web.Routes
 import Web.Routes.Happstack
 
-import Types
 import Pages
+import Types
 
 
 siteSpec :: Site Route (AppM Response)

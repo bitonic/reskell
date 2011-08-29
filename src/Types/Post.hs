@@ -2,67 +2,67 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Types.Post
-       ( -- * Types
-         PostId
-       , Post (..)       
-       , SContent (..)
-       , Submission (..)       
-       , Comment (..)
+    ( -- * Types
+      PostId
+    , Post (..)       
+    , SContent (..)
+    , Submission (..)       
+    , Comment (..)
+              
+    -- * Indexes
+    , ScoreIx (..)
+    , TimeIx (..)
+    , IdIx (..)
+    , ParentIx (..)
+      
+    -- * Sorting and selecting
+    , PostSort (..)
+    , Submissions (..)
+                  
+    -- * DB
+    , PostDB (..)
+    , PostVoters
+    , openPostDB
+      
+    -- * Query / Updates
+    , NewSubmission (..)
+    , NewComment (..)
+    , GetPost (..)
+    , GetSubmission (..)
+    , GetSubmissions (..)
+    , GetComments (..)
+    , VoteSubmission (..)
+    , VoteComment (..)
+    , VotePost (..)
+    , CountComments (..)
+    , DeletePost (..)
+      
+    -- * Utils
+    , getDomain
+    ) where
 
-         -- * Indexes
-       , ScoreIx (..)
-       , TimeIx (..)
-       , IdIx (..)
-       , ParentIx (..)
-         
-         -- * Sorting and selecting
-       , PostSort (..)
-       , Submissions (..)
-
-         -- * DB
-       , PostDB (..)
-       , PostVoters
-       , openPostDB
-         
-         -- * Query / Updates
-       , NewSubmission (..)
-       , NewComment (..)
-       , GetPost (..)
-       , GetSubmission (..)
-       , GetSubmissions (..)
-       , GetComments (..)
-       , VoteSubmission (..)
-       , VoteComment (..)
-       , VotePost (..)
-       , CountComments (..)
-       , DeletePost (..)
-         
-         -- * Utils
-       , getDomain
-       ) where
-
+import Control.Monad.Identity (Identity)
 import Control.Monad.Reader
-import Control.Monad.State     (modify, get)
-import Control.Monad.Identity  (Identity)
+import Control.Monad.State (modify, get)
 
-import System.FilePath         ((</>))
-
-import Data.Data               (Data, Typeable)
-import Data.Time.Clock
-import Data.SafeCopy
-import Data.Set                (Set)
-import qualified Data.Set as S
 import Data.Acid
+import Data.Data (Data, Typeable)
+import Data.SafeCopy
+import Data.Set (Set)
+import qualified Data.Set as S
+import Data.Time.Clock
 
-import Text.Parsec.Prim
-import Text.Parsec.Char
-import Text.Parsec.Combinator
-
-import Web.Routes              ()
-
-import Happstack.Data.IxSet    (IxSet, (@=), Indexable, ixFun, ixSet)
+import Happstack.Data.IxSet (IxSet, (@=), Indexable, ixFun, ixSet)
 import qualified Happstack.Data.IxSet as Ix
 import Happstack.Data.Proxy
+
+import System.FilePath ((</>))
+
+import Text.Parsec.Char
+import Text.Parsec.Combinator
+import Text.Parsec.Prim
+
+import Web.Routes ()
 
 import Types.User
 

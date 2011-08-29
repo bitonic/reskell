@@ -2,65 +2,65 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Types.User
-       ( -- * Types definitions
-         UserRank (..)
-       , User (..)
-       , UserName
-       , Password
-       , Karma
-       , SessionId
-       , Session (..)
-       , sessionCookie
-       , hashStrength
-         
-         -- * Indexes
-       , UserNameIx (..)
-       , RankIx (..)
-       , CreatedIx (..)
-         
-         -- * DB
-       , openUserDB
-       , UserDB (..)
-         
-         -- * Query / Updates
-       , NewUser (..)
-       , GetUser (..)
-       , UpdateUser (..)
-       , UpdateKarma (..)
-         
-       , NewSession (..)
-       , CheckSession (..)
-       , DeleteSession (..)
-         
-         -- * Utils
-       , genSessionId
-       ) where
-
+    ( -- * Types definitions
+      UserRank (..)
+    , User (..)
+    , UserName
+    , Password
+    , Karma
+    , SessionId
+    , Session (..)
+    , sessionCookie
+    , hashStrength
+      
+    -- * Indexes
+    , UserNameIx (..)
+    , RankIx (..)
+    , CreatedIx (..)
+                
+    -- * DB
+    , openUserDB
+    , UserDB (..)
+             
+    -- * Query / Updates
+    , NewUser (..)
+    , GetUser (..)
+    , UpdateUser (..)
+    , UpdateKarma (..)
+      
+    , NewSession (..)
+    , CheckSession (..)
+    , DeleteSession (..)
+                    
+    -- * Utils
+    , genSessionId
+    ) where
+    
 
 import Control.Monad.Reader
-import Control.Monad.State     (modify)
-
-import System.FilePath         ((</>))
-
-import Data.Bson               (ObjectId (..), genObjectId)
-import Data.Data               (Data, Typeable)
-import Data.Time.Clock         (UTCTime, getCurrentTime)
-import Data.ByteString         (ByteString)
-import qualified Data.ByteString.Char8 as B8
-import Data.HashMap.Strict     (HashMap)
-import qualified Data.HashMap.Strict as HM
-import Data.Acid
-
-import Data.SafeCopy
-
-import Happstack.Data.IxSet    (IxSet, (@=), Indexable, ixSet, ixFun)
-import qualified Happstack.Data.IxSet as Ix
+import Control.Monad.State (modify)
 
 import Crypto.PasswordStore
 
-import Numeric                 (showHex)
+import Data.Acid
+import Data.Bson (ObjectId (..), genObjectId)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Char8 as B8
+import Data.Data (Data, Typeable)
+import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HM
 
-import Types.Common            ()
+import Data.SafeCopy
+import Data.Time.Clock (UTCTime, getCurrentTime)
+
+import Happstack.Data.IxSet (IxSet, (@=), Indexable, ixSet, ixFun)
+import qualified Happstack.Data.IxSet as Ix
+
+import Numeric (showHex)
+
+import System.FilePath ((</>))
+
+import Types.Common ()
 
 
 

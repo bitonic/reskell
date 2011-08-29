@@ -15,7 +15,7 @@ module Types (
   ) where
 
 
-import Types.User
-import Types.Post
 import Types.App
+import Types.Post
 import Types.Route
+import Types.User

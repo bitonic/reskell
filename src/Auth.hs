@@ -1,28 +1,29 @@
 {-# Language FlexibleContexts #-}
 
 module Auth
-       ( -- * Session
-         makeSession
-       , getSessionUser  
-       , expireSession
+    ( -- * Session
+      makeSession
+    , getSessionUser  
+    , expireSession
          
-         -- * Authorization
-       , checkUser
-       , anyUser
-       , editPost
-       , deletePost
-       ) where
+    -- * Authorization
+    , checkUser
+    , anyUser
+    , editPost
+    , deletePost
+    ) where
 
 
-import Control.Monad.Trans     (liftIO, MonadIO)
-import Control.Monad.Reader    (local)
-import Control.Monad.Error     (MonadError)
+import Control.Monad.Error (MonadError)
+import Control.Monad.Reader (local)
+import Control.Monad.Trans (liftIO, MonadIO)
 
 import qualified Data.ByteString.Char8 as B8
+
 import Happstack.Server
 
-import Types
 import Pages.Common
+import Types
 
 
 

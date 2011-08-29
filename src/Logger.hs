@@ -1,18 +1,18 @@
 -- Code almost unchanged from the guestbook example.
 
 module Logger
-       ( LoggerHandle
-       , setupLogger
-       , teardownLogger
-       , withLogger
-       ) where
+    ( LoggerHandle
+    , setupLogger
+    , teardownLogger
+    , withLogger
+    ) where
 
 import Control.Exception.Extensible (bracket)
 
-import System.Log.Logger
-import System.Log.Handler      (close)
+import System.IO (stdout, Handle)
+import System.Log.Handler (close)
 import System.Log.Handler.Simple (GenericHandler, fileHandler, streamHandler)
-import System.IO               (stdout, Handle)
+import System.Log.Logger
 
 -- | Opaque type covering all information needed to teardown the logger.
 data LoggerHandle = LoggerHandle { rootLogHandler   :: GenericHandler Handle
