@@ -18,13 +18,13 @@ import Control.Monad.Error (MonadError)
 import Control.Monad.Reader (local)
 import Control.Monad.Trans (liftIO, MonadIO)
 
+import Data.Int (Int32)
 import qualified Data.ByteString.Char8 as B8
 
 import Happstack.Server
 
 import Pages.Common
-import Types
-
+import Types hiding (Session)
 
 
 -- | Calls the DB query that puts the 'Session' in the db, and put the
@@ -35,11 +35,14 @@ makeSession ::
   , MonadError AppError m
   , MonadIO m
   , Functor m
-  ) => UserName -> m ()
-makeSession userName = do
+  ) => UserName -> Bool -> m ()
+makeSession userName permanent = do
   sessionId' <- liftIO genSessionId
   dbTime userUpdate $ NewSession sessionId' userName
-  addCookie (MaxAge maxBound) (mkCookie sessionCookie $ B8.unpack sessionId')
+  let duration = if permanent
+                   then MaxAge (fromIntegral (maxBound :: Int32))
+                   else Session
+  addCookie duration (mkCookie sessionCookie $ B8.unpack sessionId')
 
 
 -- | The opposite of makeSession, remove the 'Session' from the DB and

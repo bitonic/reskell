@@ -34,14 +34,15 @@ Login form. Checks that the 'UserName' and 'Password' match, and
 returns them.
 
 -}
-loginForm :: AppForm (UserName, Password)
+loginForm :: AppForm (UserName, Password, Bool)
 loginForm = childErrors ++> form
   where
-    form = (`validate` validator) $ (,)
+    form = (`validate` validator) $ (,,)
            <$> label "Username: " ++> inputString Nothing
            <*> label "Password: " ++> (fmap B8.pack inputPassword)
+           <*> label "Remember me: " ++> inputCheckBox False
     
-    validator = checkM "Incorrect username/password" $ \(userName, password) -> do
+    validator = checkM "Incorrect username/password" $ \(userName, password, _) -> do
       userM <- userQuery $ GetUser userName
       return $ case userM of
         Nothing -> False

@@ -68,8 +68,8 @@ dispatch R_Login = do
       resp' <- eitherHappstackForm loginForm "loginForm"
       case resp' of
         Left form -> loginPage form
-        Right (userName, _) -> do
-          makeSession userName
+        Right (userName, _, remember) -> do
+          makeSession userName remember
           redirectPage
 
 dispatch R_Submit =
@@ -126,7 +126,7 @@ dispatch R_Register = do
                            , uKarma = 0
                            }
           userUpdate $ NewUser user'
-          makeSession userName
+          makeSession userName False
           redirectPage
 
 dispatch R_CP =
