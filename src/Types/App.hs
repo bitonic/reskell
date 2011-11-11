@@ -31,6 +31,7 @@ import Control.Monad.Error
 import Control.Monad.Reader
 
 import Data.Acid
+import Data.Acid.Advanced
 import Data.Time.Clock
 
 import HSP (XMLGenT)
@@ -81,8 +82,6 @@ instance MonadContext m => MonadContext (XMLGenT (RouteT url m)) where
 
 askContext :: MonadContext m => (Context -> r) -> m r
 askContext = (`liftM` getContext)
-
-
 
 -------------------------------------------------------------------------------
 

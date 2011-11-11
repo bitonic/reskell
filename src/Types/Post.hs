@@ -199,7 +199,7 @@ $(deriveSafeCopy 0 'base ''PostSort)
 openPostDB :: FilePath -> IO (AcidState PostDB)  
 openPostDB fp = do
   now <- getCurrentTime
-  openAcidStateFrom (fp </> "PostDB") $ PostDB Ix.empty Ix.empty now 0
+  openLocalStateFrom (fp </> "PostDB") $ PostDB Ix.empty Ix.empty now 0
   
 -----------------------------------------------------------------------
 

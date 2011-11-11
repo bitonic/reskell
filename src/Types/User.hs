@@ -163,7 +163,7 @@ openUserDB fp = do
                    , uCreated  = time
                    , uKarma    = 0
                    }
-  openAcidStateFrom (fp </> "UserDB") $ UserDB HM.empty (Ix.fromList [admin])
+  openLocalStateFrom (fp </> "UserDB") $ UserDB HM.empty (Ix.fromList [admin])
   
 ----------------------------------------------------------------------  
 

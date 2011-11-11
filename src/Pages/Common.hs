@@ -145,14 +145,15 @@ markdownComment :: String -> XML
 markdownComment text = cdata html
   where
     html = UTF8.toString $ renderHtml (UTF8.fromString $ text)
-                                      noExtensions noHtmlModes
+                                      noExtensions noHtmlModes Nothing
+    
 
 -- | Markdown submission
 markdownSubmission :: String -> XML
 markdownSubmission text = cdata html
   where
     html = UTF8.toString $ renderHtml (UTF8.fromString text)
-                                      noExtensions noHtmlModes
+                                      noExtensions noHtmlModes Nothing
 
 {-
 e404 :: PageM Response

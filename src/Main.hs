@@ -7,6 +7,7 @@ import Control.Exception (bracket)
 import Control.Monad (msum)
 
 import Data.Acid
+import Data.Acid.Local
 
 import qualified Happstack.Server as S
 import Happstack.Server hiding (Conf (..))

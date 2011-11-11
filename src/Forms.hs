@@ -106,7 +106,7 @@ submitForm = childErrors ++> form
     form = (`validate` validator) $ (,,)
            <$> label "Title: " ++> inputString Nothing
            <*> label "Url: " ++> inputString (Just linkBase)
-           <*> label "or message: " ++> inputTextArea (Just 13) (Just 70) Nothing
+           <*> label "or message: " ++> inputTextArea (Just 70) (Just 13) Nothing
     
     linkBase = "http://"
     validLink l = isJust $ getDomain l
@@ -121,7 +121,7 @@ submitForm = childErrors ++> form
                 ]
 
 commentForm :: AppForm String
-commentForm = childErrors ++> inputTextArea (Just 8) (Just 70) Nothing
+commentForm = childErrors ++> inputTextArea (Just 70) (Just 8) Nothing
 
 
 {-|
@@ -135,7 +135,7 @@ cpForm :: User -> AppForm (String, Password, Password, Password)
 cpForm user = childErrors ++> form
   where
     form = (`validate` validator) $ (,,,)
-           <$> label "About: " ++> inputTextArea (Just 15) (Just 70) (Just $ uAbout user)
+           <$> label "About: " ++> inputTextArea (Just 70) (Just 15) (Just $ uAbout user)
            <*> label "Old password" ++> (B8.pack <$> inputPassword)
            <*> label "New password: " ++> (B8.pack <$> inputPassword)
            <*> label "Confirm new password: " ++> (B8.pack <$> inputPassword)
